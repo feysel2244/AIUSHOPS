@@ -228,7 +228,7 @@ export default function Navbar() {
               </button>
 
               {notifOpen && (
-                <div className="absolute right-0 top-full mt-2 w-96 bg-white dark:bg-[#112038] border border-stone-200 dark:border-[#1C3058] rounded-2xl shadow-2xl z-50 overflow-hidden">
+                <div className="fixed left-3 right-3 top-16 w-auto max-w-none max-h-[calc(100vh-5rem)] bg-white dark:bg-[#112038] border border-stone-200 dark:border-[#1C3058] rounded-2xl shadow-2xl z-50 overflow-hidden sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-96 sm:max-h-none">
                   <div className="px-4 py-3 border-b border-stone-100 dark:border-[#1C3058] flex items-center justify-between">
                     <span className="font-bold text-sm text-stone-900" style={{ fontFamily: "Lora, serif" }}>
                       Notifications
@@ -249,7 +249,7 @@ export default function Navbar() {
                     </div>
                   </div>
 
-                  <div className="divide-y divide-stone-50 max-h-80 overflow-y-auto">
+                  <div className="divide-y divide-stone-50 max-h-[calc(100vh-10rem)] overflow-y-auto sm:max-h-80">
                     {previewNotifs.length === 0 ? (
                       <div className="px-4 py-8 text-center text-sm text-stone-400">No notifications yet</div>
                     ) : (
@@ -262,8 +262,8 @@ export default function Navbar() {
                         >
                           <span className="text-lg flex-shrink-0 mt-0.5">{n.icon}</span>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-stone-800 line-clamp-1">{n.title}</p>
-                            <p className="text-xs text-stone-500 mt-0.5 line-clamp-2">{n.body}</p>
+                            <p className="text-sm font-medium text-stone-800 break-words whitespace-normal">{n.title}</p>
+                            <p className="text-xs text-stone-500 mt-0.5 break-words whitespace-normal">{n.body}</p>
                             <p className="text-[10px] text-stone-400 mt-1">{n.time}</p>
                           </div>
                           {n.unread && (
@@ -424,4 +424,3 @@ export default function Navbar() {
     </nav>
   );
 }
-
