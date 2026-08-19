@@ -57,16 +57,12 @@ export type RecentItem = {
 // Real notifications load from Supabase after login via loadUserData().
 
 // Only AIU university email addresses are allowed to sign up / log in.
-export const UNIVERSITY_EMAIL_DOMAIN = "gmail.com";
 
-export function isUniversityEmail(email: string) {
-  return /^[a-zA-Z0-9]+@gmail.com$/i.test(email.trim());
-}
-/*export const UNIVERSITY_EMAIL_DOMAIN = "student.aiu.edu.my";
+export const UNIVERSITY_EMAIL_DOMAIN = "student.aiu.edu.my";
 
 export function isUniversityEmail(email: string) {
   return /^[a-zA-Z0-9]+@student\.aiu\.edu\.my$/i.test(email.trim());
-}*/
+}
 
 
 type AppContextType = {
