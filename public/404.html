@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AIU Market</title>
+</head>
+<body>
+  <script>
+    // GitHub Pages/static-host SPA fallback. Vercel uses vercel.json instead.
+    (function () {
+      var path = window.location.pathname;
+      var search = window.location.search;
+      var hash = window.location.hash;
+      var parts = path.split('/').filter(Boolean);
+      var repoBase = parts.length > 0 ? '/' + parts[0] + '/' : '/';
+      var target = path + search + hash;
+      window.location.replace(repoBase + '?p=' + encodeURIComponent(target));
+    })();
+  </script>
+</body>
+</html>
