@@ -258,12 +258,15 @@ export default function HomePage() {
             </HorizontalScroll>
           ) : (
             <HorizontalScroll>
-              {topRatedShops.map((shop, i) => (
-                <div key={shop.id} className="flex-shrink-0">
-                  <ShopCard shop={{ ...shop, rank: i + 1 }} />
-                </div>
-              ))}
-            </HorizontalScroll>
+  {topRatedShops.map((shop, i) => (
+    <div
+      key={shop.id}
+      className="flex-shrink-0 w-56 md:w-64"
+    >
+      <ShopCard shop={{ ...shop, rank: i + 1 }} />
+    </div>
+  ))}
+</HorizontalScroll>
           )}
         </section>
 

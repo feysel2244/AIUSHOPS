@@ -22,8 +22,7 @@ export default function ShopCard({ shop }: { shop: Shop }) {
   return (
     <Link
       to={`/shop/${shop.slug}`}
-      className="group block bg-white dark:bg-[#112038] rounded-xl border border-stone-100 dark:border-[#1C3058] shadow-sm hover:shadow-md dark:hover:shadow-[0_4px_20px_rgba(28,50,112,0.2)] hover:border-[#1C3270]/30 dark:hover:border-[#00B4C6]/30 transition-all duration-200 overflow-hidden"
-    >
+className="group block w-full min-w-0 bg-white dark:bg-[#112038] rounded-xl border border-stone-100 dark:border-[#1C3058] shadow-sm hover:shadow-md dark:hover:shadow-[0_4px_20px_rgba(28,50,112,0.2)] hover:border-[#1C3270]/30 dark:hover:border-[#00B4C6]/30 transition-all duration-200 overflow-hidden"    >
       <div className="p-3 flex flex-col gap-2">
         <div className="flex items-start gap-2">
           <div className="relative flex-shrink-0">
@@ -50,9 +49,9 @@ export default function ShopCard({ shop }: { shop: Shop }) {
           </div>
         </div>
 
-        <p className="text-xs text-stone-500 line-clamp-2 leading-snug">{shop.tagline}</p>
-
-        <div className="flex items-center justify-between text-xs text-stone-500 gap-1">
+<p className="text-xs text-stone-500 leading-snug truncate w-full">
+  {shop.tagline}
+</p>   <div className="flex items-center justify-between text-xs text-stone-500 gap-1">
           <span className="flex items-center gap-1 min-w-0">
             <span className="flex-shrink-0">📍</span>
             <span className="truncate">{shop.pickupLocation}</span>
