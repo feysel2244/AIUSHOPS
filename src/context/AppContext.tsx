@@ -58,10 +58,10 @@ export type RecentItem = {
 
 // Only AIU university email addresses are allowed to sign up / log in.
 
-export const UNIVERSITY_EMAIL_DOMAIN = "student.aiu.edu.my";
+export const UNIVERSITY_EMAIL_DOMAIN = "gmail.com";
 
 export function isUniversityEmail(email: string) {
-  return /^[a-zA-Z0-9]+@student\.aiu\.edu\.my$/i.test(email.trim());
+  return /^[a-zA-Z0-9]+@gmail.com$/i.test(email.trim());
 }
 
 
