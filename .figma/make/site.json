@@ -1,7 +1,7 @@
 {
   "description": "Connects Albukhary International University students through a multi-vendor marketplace to buy and sell products and services, enhancing campus commerce.",
   "robots": {
-    "index": false
+    "index": true
   },
   "accessibility": {
     "addBypassLinks": false,
