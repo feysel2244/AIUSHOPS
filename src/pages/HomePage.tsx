@@ -72,7 +72,12 @@ export default function HomePage() {
       setLoading(true);
       const now = new Date().toISOString();
       const [shopResult, productResult, serviceResult, promotedProductResult, promotedServiceResult] = await Promise.all([
-        supabase.from("shops").select("*,profiles(name,department,year,whatsapp)").eq("status", "approved").is("deleted_at", null).order("rating", { ascending: false }).limit(6),
+        supabase.from("shops").select(`
+  *,
+  profiles(name,department,year,whatsapp),
+  products(id),
+  services(id)
+`).eq("status", "approved").is("deleted_at", null).order("rating", { ascending: false }).limit(6),
         supabase.from("products").select("*,shops!inner(*,profiles(name,department,year,whatsapp))").is("shops.deleted_at", null).order("created_at", { ascending: false }).limit(6),
         supabase.from("services").select("*,shops!inner(*,profiles(name,department,year,whatsapp))").is("shops.deleted_at", null).order("created_at", { ascending: false }).limit(6),
         supabase.from("products").select("*,shops!inner(*,profiles(name,department,year,whatsapp))").is("shops.deleted_at", null).eq("is_promoted", true).gt("promoted_until", now).limit(4),
@@ -99,7 +104,12 @@ export default function HomePage() {
       }
       const { data } = await supabase
         .from("shops")
-        .select("*,profiles(name,department,year,whatsapp)")
+        .select(`
+  *,
+  profiles(name,department,year,whatsapp),
+  products(id),
+  services(id)
+`)
         .in("id", favouriteShops)
         .eq("status", "approved").is("deleted_at", null);
       setFavouriteShopsList((data ?? []).map(toShop));

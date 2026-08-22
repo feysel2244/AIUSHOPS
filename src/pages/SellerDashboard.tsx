@@ -116,9 +116,10 @@ export default function SellerDashboard() {
     if (!user) return;
     const { data: shopRow } = await supabase
       .from("shops")
-      .select("id,slug,name,shop_type,is_open,is_paused,rating,review_count,pickup_location,logo_url,banner_url,payment_qr_url,bank_name,account_name,account_number,commission_per_order")
+      .select("id,slug,name,shop_type,is_open,is_paused,rating,review_count,pickup_location,logo_url,banner_url,payment_qr_url,bank_name,account_name,account_number,commission_per_order,status")
       .eq("owner_id", user.id)
       .eq("status", "approved")
+      .is("deleted_at", null)
       .maybeSingle();
 
     setShop(shopRow);
@@ -128,8 +129,8 @@ export default function SellerDashboard() {
 
     const monthStart = startOfMonth();
     const [{ data: products }, { data: services }, { data: orderRows }, { data: reviewRows }, todaySales, monthSales, { data: settlementRows }] = await Promise.all([
-      supabase.from("products").select("id,name,price,category,description,images,stock_status,stock_count,slug,is_promoted,created_at").eq("shop_id", shopRow.id).order("created_at", { ascending: false }),
-      supabase.from("services").select("id,name,price,price_type,category,description,what_included,turnaround,availability,image,slug,is_promoted,created_at").eq("shop_id", shopRow.id).order("created_at", { ascending: false }),
+      supabase.from("products").select("id,name,price,category,description,images,stock_status,stock_count,slug,is_promoted,created_at").eq("shop_id", shopRow.id).is("deleted_at", null).order("created_at", { ascending: false }),
+      supabase.from("services").select("id,name,price,price_type,category,description,what_included,turnaround,availability,image,slug,is_promoted,created_at").eq("shop_id", shopRow.id).is("deleted_at", null).order("created_at", { ascending: false }),
       supabase.from("orders").select("id,order_code,type,status,total,payment_status,payment_timing,payment_confirmed_by,payment_verified_by_seller,created_at,profiles(name,whatsapp),order_items(name,quantity)").eq("shop_id", shopRow.id).order("created_at", { ascending: false }),
       supabase.from("reviews").select("id,rating,text,created_at,profiles(name,avatar_url),products(name),services(name)").eq("shop_id", shopRow.id).order("created_at", { ascending: false }),
       getShopSalesSummary(shopRow.id, startOfToday(), startOfTomorrow()),
@@ -324,15 +325,33 @@ export default function SellerDashboard() {
   }
 
   async function removeListing(item: any) {
-    const confirmed = window.confirm(`Remove "${item.name}" from your listings? This cannot be undone.`);
+    const confirmed = window.confirm(
+      `Remove "${item.name}" from your listings? It will disappear from the marketplace, but previous order records will be kept.`
+    );
     if (!confirmed) return;
+
+    setError("");
+
     const table = item.type === "service" ? "services" : "products";
-    const { error: deleteError } = await supabase.from(table).delete().eq("id", item.id).eq("shop_id", shop.id);
-    if (deleteError) {
-      setError(deleteError.message);
+
+    // Soft-delete the listing instead of physically deleting it.
+    // This keeps old order_items.product_id / service_id references valid.
+    const { error: removeError } = await supabase
+      .from(table)
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", item.id)
+      .eq("shop_id", shop.id);
+
+    if (removeError) {
+      setError(removeError.message);
       return;
     }
-    setListings((prev) => prev.filter((row) => !(row.id === item.id && row.type === item.type)));
+
+    setListings((prev) =>
+      prev.filter(
+        (row) => !(row.id === item.id && row.type === item.type)
+      )
+    );
   }
 
   function closeAddService() {

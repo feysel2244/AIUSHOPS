@@ -59,7 +59,7 @@ export type RecentItem = {
 // Only AIU university email addresses are allowed to sign up / log in.
 
 export const UNIVERSITY_EMAIL_DOMAIN = [
-  "gmail.com",
+  //"gmail.com",
   "aiu.edu.my",
   "student.aiu.edu.my"
 ];

@@ -14,6 +14,10 @@ export type ShopRow = {
   rating?: number | null;
   review_count?: number | null;
   created_at?: string | null;
+
+  products?: { id: string }[] | null;
+  services?: { id: string }[] | null;
+
   profiles?: {
     name?: string | null;
     department?: string | null;
@@ -62,13 +66,23 @@ export type ServiceRow = {
   shops?: ShopRow | null;
 };
 
-const fallbackImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&h=600&fit=crop&auto=format";
-const fallbackLogo = "https://images.unsplash.com/photo-1504386106331-3e4e71712b38?w=80&h=80&fit=crop&auto=format";
+const fallbackImage =
+  "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&h=600&fit=crop&auto=format";
+
+const fallbackLogo =
+  "https://images.unsplash.com/photo-1504386106331-3e4e71712b38?w=80&h=80&fit=crop&auto=format";
 
 export function normalizeRating(value?: number | string | null) {
   const rating = Number(value ?? 0);
-  if (!Number.isFinite(rating) || rating <= 0) return 0;
-  if (rating > 5 && rating <= 10) return Number((rating / 2).toFixed(1));
+
+  if (!Number.isFinite(rating) || rating <= 0) {
+    return 0;
+  }
+
+  if (rating > 5 && rating <= 10) {
+    return Number((rating / 2).toFixed(1));
+  }
+
   return Math.min(5, rating);
 }
 
@@ -81,87 +95,238 @@ export function slugify(value: string) {
 }
 
 export function toShop(row: ShopRow) {
+  const productCount = row.products?.length ?? 0;
+  const serviceCount = row.services?.length ?? 0;
+
   return {
     id: row.id,
     slug: row.slug,
     name: row.name,
     category: row.category,
+
     logo: row.logo_url || fallbackLogo,
     banner: row.banner_url || fallbackImage,
+
     tagline: row.bio || "Student-run campus shop",
-    pickupLocation: row.pickup_location || "Campus",
+
+    pickupLocation:
+      row.pickup_location || "Campus",
+
     rating: normalizeRating(row.rating),
-    reviewCount: Number(row.review_count ?? 0),
-    isOpen: Boolean(row.is_open ?? true) && !row.is_paused,
-    listingCount: 0,
+
+    reviewCount: Number(
+      row.review_count ?? 0
+    ),
+
+    isOpen:
+      Boolean(row.is_open ?? true) &&
+      !row.is_paused,
+
+    // Products + Services
+    listingCount:
+      productCount + serviceCount,
+
     rank: null,
+
     seller: {
-      name: row.profiles?.name || "AIU Seller",
-      department: row.profiles?.department || "",
-      year: row.profiles?.year || "",
-      whatsapp: row.profiles?.whatsapp || "",
+      name:
+        row.profiles?.name ||
+        "AIU Seller",
+
+      department:
+        row.profiles?.department ||
+        "",
+
+      year:
+        row.profiles?.year ||
+        "",
+
+      whatsapp:
+        row.profiles?.whatsapp ||
+        "",
     },
-    description: row.bio || "Student-run campus shop",
+
+    description:
+      row.bio ||
+      "Student-run campus shop",
+
     promoted: false,
   };
 }
 
 export function toProduct(row: ProductRow) {
-  const shop = row.shops ? toShop(row.shops) : null;
+  const shop = row.shops
+    ? toShop(row.shops)
+    : null;
+
   return {
     id: row.id,
+
     slug: row.slug,
+
     shopId: row.shop_id,
-    shopSlug: shop?.slug || "",
-    shopName: shop?.name || "AIU Shop",
-    shopLogo: shop?.logo || fallbackLogo,
+
+    shopSlug:
+      shop?.slug || "",
+
+    shopName:
+      shop?.name || "AIU Shop",
+
+    shopLogo:
+      shop?.logo || fallbackLogo,
+
     name: row.name,
-    price: Number(row.price ?? 0),
-    images: row.images?.length ? row.images : [fallbackImage],
-    category: row.category,
-    pickupLocation: shop?.pickupLocation || "Campus",
-    stock: row.stock_status || "in_stock",
-    stockCount: row.stock_count ?? undefined,
-    description: row.description || "",
-    promoted: Boolean(row.is_promoted),
-    rating: normalizeRating(row.rating ?? shop?.rating),
-    reviewCount: Number(row.review_count ?? 0),
-    type: "product" as const,
+
+    price: Number(
+      row.price ?? 0
+    ),
+
+    images:
+      row.images?.length
+        ? row.images
+        : [fallbackImage],
+
+    category:
+      row.category,
+
+    pickupLocation:
+      shop?.pickupLocation ||
+      "Campus",
+
+    stock:
+      row.stock_status ||
+      "in_stock",
+
+    stockCount:
+      row.stock_count ??
+      undefined,
+
+    description:
+      row.description ||
+      "",
+
+    promoted:
+      Boolean(row.is_promoted),
+
+    rating:
+      normalizeRating(
+        row.rating ??
+        shop?.rating
+      ),
+
+    reviewCount:
+      Number(
+        row.review_count ?? 0
+      ),
+
+    type:
+      "product" as const,
   };
 }
 
 export function toService(row: ServiceRow) {
-  const shop = row.shops ? toShop(row.shops) : null;
+  const shop = row.shops
+    ? toShop(row.shops)
+    : null;
+
   return {
     id: row.id,
+
     slug: row.slug,
+
     shopId: row.shop_id,
-    shopSlug: shop?.slug || "",
-    shopName: shop?.name || "AIU Shop",
-    shopLogo: shop?.logo || fallbackLogo,
+
+    shopSlug:
+      shop?.slug || "",
+
+    shopName:
+      shop?.name || "AIU Shop",
+
+    shopLogo:
+      shop?.logo || fallbackLogo,
+
     name: row.name,
-    price: Number(row.price ?? 0),
-    priceType: row.price_type || "",
-    image: row.image || fallbackImage,
-    category: row.category,
-    pickupLocation: shop?.pickupLocation || "Campus",
-    availability: row.availability || "available",
-    description: row.description || "",
-    turnaround: row.turnaround || "",
-    what_included: row.what_included || "",
-    promoted: Boolean(row.is_promoted),
-    rating: normalizeRating(row.rating ?? shop?.rating),
-    reviewCount: Number(row.review_count ?? 0),
-    type: "service" as const,
+
+    price: Number(
+      row.price ?? 0
+    ),
+
+    priceType:
+      row.price_type || "",
+
+    image:
+      row.image ||
+      fallbackImage,
+
+    category:
+      row.category,
+
+    pickupLocation:
+      shop?.pickupLocation ||
+      "Campus",
+
+    availability:
+      row.availability ||
+      "available",
+
+    description:
+      row.description ||
+      "",
+
+    turnaround:
+      row.turnaround ||
+      "",
+
+    what_included:
+      row.what_included ||
+      "",
+
+    promoted:
+      Boolean(row.is_promoted),
+
+    rating:
+      normalizeRating(
+        row.rating ??
+        shop?.rating
+      ),
+
+    reviewCount:
+      Number(
+        row.review_count ?? 0
+      ),
+
+    type:
+      "service" as const,
   };
 }
 
-export function formatRelativeTime(value?: string | null) {
-  if (!value) return "";
-  const diffMs = Date.now() - new Date(value).getTime();
-  const minutes = Math.max(1, Math.round(diffMs / 60000));
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+export function formatRelativeTime(
+  value?: string | null
+) {
+  if (!value) {
+    return "";
+  }
+
+  const diffMs =
+    Date.now() -
+    new Date(value).getTime();
+
+  const minutes = Math.max(
+    1,
+    Math.round(diffMs / 60000)
+  );
+
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+
+  const hours = Math.round(
+    minutes / 60
+  );
+
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+
   return `${Math.round(hours / 24)}d ago`;
 }

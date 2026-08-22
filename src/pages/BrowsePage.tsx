@@ -55,7 +55,12 @@ export default function BrowsePage() {
 
       let productQuery = supabase.from("products").select("*,shops!inner(*,profiles(name,department,year,whatsapp))").is("shops.deleted_at", null);
       let serviceQuery = supabase.from("services").select("*,shops!inner(*,profiles(name,department,year,whatsapp))").is("shops.deleted_at", null);
-      let shopQuery = supabase.from("shops").select("*,profiles(name,department,year,whatsapp)").eq("status", "approved").is("deleted_at", null);
+      let shopQuery = supabase.from("shops").select(`
+  *,
+  profiles(name,department,year,whatsapp),
+  products(id),
+  services(id)
+`).eq("status", "approved").is("deleted_at", null);
 
       if (search) {
         productQuery = productQuery.ilike("name", `%${search}%`);
