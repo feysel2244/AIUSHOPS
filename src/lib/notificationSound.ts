@@ -91,7 +91,7 @@ export function setNotificationSoundEnabled(enabled: boolean) {
   localStorage.setItem("aiu_notification_sound", enabled ? "on" : "off");
 }
 
-export function showBrowserNotification(title: string, body: string) {
+export function showBrowserNotification(title: string, body: string, linkTo: string | undefined) {
   if (typeof window === "undefined" || !("Notification" in window)) return;
   if (Notification.permission !== "granted") return;
   try {
