@@ -91,12 +91,26 @@ export function setNotificationSoundEnabled(enabled: boolean) {
   localStorage.setItem("aiu_notification_sound", enabled ? "on" : "off");
 }
 
-export function showBrowserNotification(title: string, body: string, linkTo: string | undefined) {
+export async function showBrowserNotification(title: string, body: string, linkTo: string | undefined) {
   if (typeof window === "undefined" || !("Notification" in window)) return;
   if (Notification.permission !== "granted") return;
   try {
-    new Notification(title, { body, icon: `${import.meta.env.BASE_URL}favicon.svg` });
+    // Prefer the service worker's showNotification — it works in background
+    const registration = await navigator.serviceWorker?.ready;
+    if (registration) {
+      await registration.showNotification(title, {
+        body,
+        icon: `${import.meta.env.BASE_URL}favicon.png`,
+        badge: `${import.meta.env.BASE_URL}favicon.png`,
+        tag: `aiu-inline-${Date.now()}`,
+        data: { linkTo: linkTo || "/notifications" },
+      });
+    } else {
+      // Fallback to Notification constructor (only works when tab is focused)
+      new Notification(title, { body, icon: `${import.meta.env.BASE_URL}favicon.png` });
+    }
   } catch {
-    // Optional enhancement.
+    // Optional enhancement — never break the app.
   }
 }
+

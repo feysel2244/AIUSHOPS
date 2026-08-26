@@ -9,9 +9,31 @@ function base64ToUint8Array(value: string) {
   return Uint8Array.from([...raw].map((char) => char.charCodeAt(0)));
 }
 
+/**
+ * Register the push service worker. Waits for it to become active so
+ * pushManager.subscribe() never fails with "service worker not active".
+ */
 export async function registerPushServiceWorker() {
   if (typeof window === "undefined" || !("serviceWorker" in navigator)) return null;
-  return navigator.serviceWorker.register(SW_PATH, { scope: "/" });
+
+  const registration = await navigator.serviceWorker.register(SW_PATH, { scope: "/" });
+
+  // Wait for the service worker to be active
+  if (registration.installing || registration.waiting) {
+    const sw = registration.installing || registration.waiting!;
+    await new Promise<void>((resolve) => {
+      sw.addEventListener("statechange", function handler() {
+        if (sw.state === "activated" || sw.state === "redundant") {
+          sw.removeEventListener("statechange", handler);
+          resolve();
+        }
+      });
+      // Resolve immediately if already activated
+      if (sw.state === "activated") resolve();
+    });
+  }
+
+  return registration;
 }
 
 export async function getPushPermission() {
@@ -27,17 +49,25 @@ export async function requestPushPermission() {
 export async function enableWebPush(userId: string) {
   const publicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
   if (!publicKey) throw new Error("Browser push is not configured yet. Add VITE_VAPID_PUBLIC_KEY to the Vercel environment variables.");
+
   const permission = await requestPushPermission();
   if (permission !== "granted") throw new Error(permission === "denied" ? "Browser notifications are blocked. Allow notifications for this site in your browser settings." : "Notification permission was not granted.");
+
   const registration = await registerPushServiceWorker();
   if (!registration) throw new Error("This browser does not support push notifications.");
+
+  // Ensure the service worker is ready before subscribing
+  await navigator.serviceWorker.ready;
+
   const existing = await registration.pushManager.getSubscription();
   const subscription = existing ?? await registration.pushManager.subscribe({
     userVisibleOnly: true,
     applicationServerKey: base64ToUint8Array(publicKey),
   });
+
   const json = subscription.toJSON();
   if (!json.endpoint || !json.keys?.p256dh || !json.keys.auth) throw new Error("The browser returned an incomplete push subscription.");
+
   const { error } = await supabase.from("push_subscriptions").upsert({
     user_id: userId,
     endpoint: json.endpoint,

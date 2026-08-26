@@ -189,7 +189,17 @@ export default function ServiceDetailPage() {
   </Helmet>
 );
 
+  let parsedAvail: { days: string[], start: string, end: string } | null = null;
+  try {
+    if (sv.availability?.startsWith("{")) {
+      parsedAvail = JSON.parse(sv.availability);
+    }
+  } catch (e) {}
+
   function availLabel() {
+    if (parsedAvail) {
+      return { text: `Available ${parsedAvail.days.join(", ")} • ${parsedAvail.start} - ${parsedAvail.end}`, cls: "text-green-600" };
+    }
     if (sv.availability === "available") return { text: "Available now", cls: "text-green-600" };
     if (sv.availability === "slots_open") return { text: "Slots open this week", cls: "text-blue-600" };
     if (sv.availability === "fully_booked") return { text: "Fully booked", cls: "text-red-500" };
@@ -205,6 +215,18 @@ export default function ServiceDetailPage() {
     const errs: Record<string, string> = {};
     if (!date) errs.date = "Please select a preferred date";
     if (!time) errs.time = "Please select a preferred time";
+    
+    if (date && time && parsedAvail) {
+      if (time < parsedAvail.start || time > parsedAvail.end) {
+        errs.time = `Please choose a time between ${parsedAvail.start} and ${parsedAvail.end}`;
+      }
+      
+      const dayOfWeek = new Date(date).toLocaleDateString('en-US', { weekday: 'short' }); // e.g. "Mon"
+      if (!parsedAvail.days.includes(dayOfWeek)) {
+        errs.date = `Seller is not available on ${dayOfWeek}. Available days: ${parsedAvail.days.join(", ")}`;
+      }
+    }
+
     if (Object.keys(errs).length) { setErrors(errs); return; }
 
     const profileReady = await ensureBuyerProfile(user);

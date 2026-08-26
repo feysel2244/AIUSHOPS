@@ -31,7 +31,7 @@ import {
   type SalesSummary,
 } from "../lib/commissions";
 
-type Tab = "overview" | "listings" | "orders" | "analytics" | "earnings" | "settings" | "reviews";
+type Tab = "overview" | "listings" | "orders" | "requests" | "analytics" | "earnings" | "settings" | "reviews";
 
 const PROMOTION_TIERS = [
   { days: 3, amount: 5 },
@@ -56,7 +56,13 @@ export default function SellerDashboard() {
   const [reviews, setReviews] = useState<any[]>([]);
   const [rejectModal, setRejectModal] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [proposeModal, setProposeModal] = useState<string | null>(null);
+  const [proposedDate, setProposedDate] = useState("");
+  const [proposedTime, setProposedTime] = useState("");
   const [error, setError] = useState("");
+  const [orderTab, setOrderTab] = useState<"pending" | "active" | "done">("pending");
+
+
 
   // Promotion modal
   const [promoteModal, setPromoteModal] = useState<string | null>(null);
@@ -83,7 +89,11 @@ export default function SellerDashboard() {
   // Add product/service
   const [addProductOpen, setAddProductOpen] = useState(false);
   const [addServiceOpen, setAddServiceOpen] = useState(false);
-  const [serviceForm, setServiceForm] = useState({ name: "", price: "", priceType: "Fixed price", category: "", description: "", whatIncluded: "", turnaround: "", availability: "available" });
+  const [serviceForm, setServiceForm] = useState({
+    name: "", price: "", priceType: "Fixed price", category: "", description: "", whatIncluded: "",
+    turnaroundNum: "3", turnaroundUnit: "Days",
+    availDays: ["Mon", "Tue", "Wed", "Thu", "Fri"], availStart: "09:00", availEnd: "18:00"
+  });
   const [serviceImageFile, setServiceImageFile] = useState<File | null>(null);
   const [serviceImagePreview, setServiceImagePreview] = useState("");
   const [serviceImageError, setServiceImageError] = useState("");
@@ -238,6 +248,25 @@ export default function SellerDashboard() {
   }
 
   // ── Order actions ────────────────────────────────────────────────────────────
+  
+  async function handleProposeTime() {
+    if (!proposeModal || !proposedDate || !proposedTime) return;
+    const { error: err } = await supabase.from("orders").update({
+      booking_date: proposedDate,
+      booking_time: proposedTime,
+      status: "pending_buyer_approval"
+    }).eq("id", proposeModal);
+    
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    setProposeModal(null);
+    setProposedDate("");
+    setProposedTime("");
+    await loadSellerData();
+  }
+
   async function updateOrderStatus(id: string, status: string, reason?: string) {
     const update: Record<string, string> = { status };
     if (reason) update.rejection_reason = reason;
@@ -393,23 +422,35 @@ export default function SellerDashboard() {
 
   function closeAddService() {
     setAddServiceOpen(false);
-    setServiceForm({ name: "", price: "", priceType: "Fixed price", category: "", description: "", whatIncluded: "", turnaround: "", availability: "available" });
+    setServiceForm({
+      name: "", price: "", priceType: "Fixed price", category: "", description: "", whatIncluded: "",
+      turnaroundNum: "3", turnaroundUnit: "Days",
+      availDays: ["Mon", "Tue", "Wed", "Thu", "Fri"], availStart: "09:00", availEnd: "18:00"
+    });
     setServiceImageFile(null);
     setServiceImagePreview((prev) => { if (prev) URL.revokeObjectURL(prev); return ""; });
     setServiceImageError("");
   }
 
   async function handleAddService() {
-    if (!serviceForm.name || !serviceForm.price || !serviceForm.category || !serviceForm.description || !serviceForm.whatIncluded || !serviceForm.turnaround) {
+    if (!serviceForm.name || !serviceForm.price || !serviceForm.category || !serviceForm.description || !serviceForm.whatIncluded || !serviceForm.turnaroundNum || serviceForm.availDays.length === 0 || !serviceForm.availStart || !serviceForm.availEnd) {
       setError("Please complete all required service fields.");
       return;
     }
     const slug = `${slugify(serviceForm.name)}-${Date.now().toString(36)}`;
     setServiceImageUploading(Boolean(serviceImageFile));
+    
+    const combinedTurnaround = `${serviceForm.turnaroundNum} ${serviceForm.turnaroundUnit}`;
+    const structuredAvailability = JSON.stringify({
+      days: serviceForm.availDays,
+      start: serviceForm.availStart,
+      end: serviceForm.availEnd
+    });
+
     const { data: newService, error: insertError } = await supabase.from("services").insert({
       shop_id: shop.id, slug, name: serviceForm.name.trim(), description: serviceForm.description.trim(),
       what_included: serviceForm.whatIncluded.trim(), price: Number(serviceForm.price), price_type: serviceForm.priceType,
-      turnaround: serviceForm.turnaround.trim(), category: serviceForm.category, availability: serviceForm.availability, image: null,
+      turnaround: combinedTurnaround, category: serviceForm.category, availability: structuredAvailability, image: null,
     }).select("id").single();
     if (insertError || !newService) { setServiceImageUploading(false); setError(insertError?.message || "Could not create service"); return; }
     if (serviceImageFile) {
@@ -686,6 +727,7 @@ export default function SellerDashboard() {
     { id: "overview", label: "Overview", icon: "Stats" },
     { id: "listings", label: "Listings", icon: "List" },
     { id: "orders", label: "Orders", icon: "Orders" },
+    { id: "requests", label: "Service Requests", icon: "Calendar" },
     { id: "analytics", label: "Analytics", icon: "Chart" },
     { id: "earnings", label: "Earnings", icon: "RM" },
     { id: "reviews", label: "Reviews", icon: "Star" },
@@ -789,95 +831,227 @@ export default function SellerDashboard() {
           )}
 
           {/* ── Orders ───────────────────────────────────────────────────────── */}
-          {tab === "orders" && (
-            <div className="space-y-4">
-              {orders.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-stone-100 p-8 text-center text-sm text-stone-500">No orders yet.</div>
-              ) : orders.map((order) => (
-                <div key={order.id} className="bg-white rounded-2xl border border-stone-100 overflow-hidden">
-                  <div className="px-5 py-3 bg-stone-50 border-b border-stone-100 flex items-center justify-between flex-wrap gap-2">
-                    <div>
-                      <span className="font-semibold text-stone-900 text-sm">{order.buyer}</span>
-                      <span className="mx-2 text-stone-300">—</span>
-                      <span className="font-mono text-xs text-stone-400">{order.code}</span>
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge variant={order.status as any} />
-                      {/* Payment status indicators */}
-                      {order.payment_timing === "on_pickup" && order.payment_status !== "paid" && (
-                        <span className="text-xs bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded-full">💵 Cash/QR on pickup</span>
+          {tab === "orders" && (() => {
+            const productOrders = orders.filter((o) => o.type === "product");
+            const pendingOrders = productOrders.filter((o) => o.status === "pending");
+            const activeOrders = productOrders.filter((o) => ["confirmed", "ready"].includes(o.status));
+            const doneOrders = productOrders.filter((o) => ["completed", "cancelled", "rejected"].includes(o.status));
+            const visibleOrders = orderTab === "pending" ? pendingOrders : orderTab === "active" ? activeOrders : doneOrders;
+            return (
+              <div className="space-y-4">
+                {/* Sub-tabs */}
+                <div className="flex gap-1 bg-stone-100 rounded-xl p-1 w-fit">
+                  {([
+                    { key: "pending" as const, label: "Pending", count: pendingOrders.length, color: "text-amber-600" },
+                    { key: "active" as const, label: "Active", count: activeOrders.length, color: "text-blue-600" },
+                    { key: "done" as const, label: "Completed", count: doneOrders.length, color: "text-stone-500" },
+                  ]).map(({ key, label, count, color }) => (
+                    <button
+                      key={key}
+                      onClick={() => setOrderTab(key)}
+                      className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${orderTab === key ? "bg-white shadow-sm text-[#1C3270]" : "text-stone-500 hover:text-stone-700"}`}
+                    >
+                      {label}
+                      {count > 0 && (
+                        <span className={`ml-1.5 text-xs font-bold ${orderTab === key ? color : "opacity-50"}`}>
+                          ({count})
+                        </span>
                       )}
-                      {order.payment_confirmed_by === "buyer" && !order.payment_verified_by_seller && (
-                        <Badge variant="payment_reported" />
-                      )}
-                      {order.payment_verified_by_seller && (
-                        <span className="text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full">✓ Payment verified</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="px-5 py-4">
-                    <div className="flex justify-between items-center text-sm mb-1">
-                      <span className="text-stone-700">{order.item}</span>
-                      <span className="font-bold text-[#1C3270]">RM {order.total.toFixed(2)}</span>
-                    </div>
-                    <div className="text-xs text-stone-400 mb-3">{order.date} — {order.type === "service" ? "Service Booking" : "Product Order"}</div>
-                    {order.type === "service" && (order.booking_date || order.booking_time) && (
-                      <div className="mb-3 p-3 bg-blue-50 border border-blue-100 rounded-xl text-sm text-blue-800">
-                        <span className="font-semibold">Requested time:</span> {order.booking_date ? new Date(`${order.booking_date}T00:00:00`).toLocaleDateString("en-MY", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : "Date not set"}{order.booking_time ? ` at ${order.booking_time}` : ""}
-                      </div>
-                    )}
-
-                    <div className="flex flex-wrap gap-2">
-                      {order.status === "pending" && (
-                        <>
-                          <button onClick={() => updateOrderStatus(order.id, "confirmed")} className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700">Accept</button>
-                          <button onClick={() => setRejectModal(order.id)} className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-xs font-semibold hover:bg-red-600">Reject</button>
-                        </>
-                      )}
-                      {order.status === "confirmed" && (
-                        <button onClick={() => updateOrderStatus(order.id, "ready")} className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-semibold hover:bg-purple-700">Mark as Ready</button>
-                      )}
-                      {order.status === "ready" && (
-                        <button
-                          onClick={() => {
-                            setPaymentCollected(false);
-                            setDeliverConfirmModal(order.id);
-                          }}
-                          className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700"
-                        >
-                          Mark as Delivered
-                        </button>
-                      )}
-                      {/* Buyer payment proof */}
-                      {order.payment_proof_url && (
-                        <button
-                          onClick={() => setPaymentProofOrder(order)}
-                          className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700"
-                        >
-                          📷 View Payment Proof
-                        </button>
-                      )}
-                      {/* Seller payment verify toggle */}
-                      {order.payment_confirmed_by === "buyer" && !order.payment_verified_by_seller && (
-                        <button
-                          onClick={() => void handleVerifyPayment(order.id)}
-                          className="px-3 py-1.5 bg-amber-500 text-white rounded-lg text-xs font-semibold hover:bg-amber-600"
-                        >
-                          ✓ Verify Payment Received
-                        </button>
-                      )}
-                      {order.whatsapp && (
-                        <a href={`https://wa.me/${order.whatsapp}`} target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 bg-[#25D366] text-white rounded-lg text-xs font-semibold hover:bg-[#1ebe5d]">
-                          Message Buyer
-                        </a>
-                      )}
-                    </div>
-                  </div>
+                    </button>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
+
+                {/* Order cards */}
+                {visibleOrders.length === 0 ? (
+                  <div className="bg-white rounded-2xl border border-stone-100 p-10 text-center">
+                    <div className="text-3xl mb-2">{orderTab === "pending" ? "⏳" : orderTab === "active" ? "📦" : "✅"}</div>
+                    <div className="text-sm text-stone-500">
+                      {orderTab === "pending" ? "No pending orders — all caught up!" : orderTab === "active" ? "No active orders in progress." : "No completed orders yet."}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {visibleOrders.map((order) => (
+                      <div key={order.id} className="bg-white rounded-2xl border border-stone-100 overflow-hidden shadow-sm">
+                        <div className="px-5 py-3 bg-stone-50 border-b border-stone-100 flex items-center justify-between flex-wrap gap-2">
+                          <div>
+                            <span className="font-semibold text-stone-900 text-sm">{order.buyer}</span>
+                            <span className="mx-2 text-stone-300">—</span>
+                            <span className="font-mono text-xs text-stone-400">{order.code}</span>
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant={order.status as any} />
+                            {order.payment_timing === "on_pickup" && order.payment_status !== "paid" && (
+                              <span className="text-xs bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded-full">💵 Cash/QR on pickup</span>
+                            )}
+                            {order.payment_confirmed_by === "buyer" && !order.payment_verified_by_seller && (
+                              <Badge variant="payment_reported" />
+                            )}
+                            {order.payment_verified_by_seller && (
+                              <span className="text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full">✓ Payment verified</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="px-5 py-4">
+                          <div className="flex justify-between items-center text-sm mb-1">
+                            <span className="text-stone-700">{order.item}</span>
+                            <span className="font-bold text-[#1C3270]">RM {order.total.toFixed(2)}</span>
+                          </div>
+                          <div className="text-xs text-stone-400 mb-3">{order.date} — {order.type === "service" ? "Service Booking" : "Product Order"}</div>
+                          {order.type === "service" && (order.booking_date || order.booking_time) && (
+                            <div className="mb-3 p-3 bg-blue-50 border border-blue-100 rounded-xl text-sm text-blue-800">
+                              <span className="font-semibold">Requested time:</span> {order.booking_date ? new Date(`${order.booking_date}T00:00:00`).toLocaleDateString("en-MY", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : "Date not set"}{order.booking_time ? ` at ${order.booking_time}` : ""}
+                            </div>
+                          )}
+
+                          <div className="flex flex-wrap gap-2">
+                            {order.status === "pending" && (
+                              <>
+                                <button onClick={() => updateOrderStatus(order.id, "confirmed")} className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700">Accept</button>
+                                <button onClick={() => setRejectModal(order.id)} className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-xs font-semibold hover:bg-red-600">Reject</button>
+                              </>
+                            )}
+                            {order.status === "confirmed" && (
+                              <button onClick={() => updateOrderStatus(order.id, "ready")} className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-semibold hover:bg-purple-700">Mark as Ready</button>
+                            )}
+                            {order.status === "ready" && (
+                              <button
+                                onClick={() => { setPaymentCollected(false); setDeliverConfirmModal(order.id); }}
+                                className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700"
+                              >
+                                Mark as Delivered
+                              </button>
+                            )}
+                            {order.payment_proof_url && (
+                              <button
+                                onClick={() => setPaymentProofOrder(order)}
+                                className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700"
+                              >
+                                📷 View Payment Proof
+                              </button>
+                            )}
+                            {order.payment_confirmed_by === "buyer" && !order.payment_verified_by_seller && (
+                              <button
+                                onClick={() => void handleVerifyPayment(order.id)}
+                                className="px-3 py-1.5 bg-amber-500 text-white rounded-lg text-xs font-semibold hover:bg-amber-600"
+                              >
+                                ✓ Verify Payment Received
+                              </button>
+                            )}
+                            {order.whatsapp && (
+                              <a href={`https://wa.me/${order.whatsapp}`} target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 bg-[#25D366] text-white rounded-lg text-xs font-semibold hover:bg-[#1ebe5d]">
+                                Message Buyer
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* ── Service Requests ─────────────────────────────────────────────── */}
+          {tab === "requests" && (() => {
+            const serviceOrders = orders.filter((o) => o.type === "service");
+            const pendingOrders = serviceOrders.filter((o) => o.status === "pending" || o.status === "pending_buyer_approval");
+            const activeOrders = serviceOrders.filter((o) => ["confirmed", "ready"].includes(o.status));
+            const doneOrders = serviceOrders.filter((o) => ["completed", "cancelled", "rejected"].includes(o.status));
+            const visibleOrders = orderTab === "pending" ? pendingOrders : orderTab === "active" ? activeOrders : doneOrders;
+            return (
+              <div className="space-y-4">
+                <div className="flex gap-1 bg-stone-100 rounded-xl p-1 w-fit">
+                  {([
+                    { key: "pending" as const, label: "Requests", count: pendingOrders.length, color: "text-amber-600" },
+                    { key: "active" as const, label: "Active", count: activeOrders.length, color: "text-blue-600" },
+                    { key: "done" as const, label: "Completed", count: doneOrders.length, color: "text-stone-500" },
+                  ]).map(({ key, label, count, color }) => (
+                    <button
+                      key={key}
+                      onClick={() => setOrderTab(key)}
+                      className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${orderTab === key ? "bg-white shadow-sm text-[#1C3270]" : "text-stone-500 hover:text-stone-700"}`}
+                    >
+                      {label}
+                      {count > 0 && (
+                        <span className={`ml-1.5 text-xs font-bold ${orderTab === key ? color : "opacity-50"}`}>
+                          ({count})
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                {visibleOrders.length === 0 ? (
+                  <div className="bg-white rounded-2xl border border-stone-100 p-10 text-center">
+                    <div className="text-3xl mb-2">{orderTab === "pending" ? "📅" : orderTab === "active" ? "⚙️" : "✅"}</div>
+                    <div className="text-sm text-stone-500">
+                      {orderTab === "pending" ? "No pending service requests." : orderTab === "active" ? "No active services." : "No completed services yet."}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {visibleOrders.map((order) => (
+                      <div key={order.id} className="bg-white rounded-2xl border border-stone-100 overflow-hidden shadow-sm">
+                        <div className="px-5 py-3 bg-stone-50 border-b border-stone-100 flex items-center justify-between flex-wrap gap-2">
+                          <div>
+                            <span className="font-semibold text-stone-900 text-sm">{order.buyer}</span>
+                            <span className="mx-2 text-stone-300">—</span>
+                            <span className="font-mono text-xs text-stone-400">{order.code}</span>
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant={order.status as any} />
+                            {order.status === "pending_buyer_approval" && (
+                              <span className="text-xs bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full">Counter-offer sent</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="px-5 py-4">
+                          <div className="flex justify-between items-center text-sm mb-1">
+                            <span className="text-stone-700">{order.item}</span>
+                            <span className="font-bold text-[#1C3270]">RM {order.total.toFixed(2)}</span>
+                          </div>
+                          
+                          {(order.booking_date || order.booking_time) && (
+                            <div className={`mb-3 p-3 border rounded-xl text-sm ${order.status === 'pending_buyer_approval' ? 'bg-purple-50 border-purple-100 text-purple-800' : 'bg-blue-50 border-blue-100 text-blue-800'}`}>
+                              <span className="font-semibold">{order.status === 'pending_buyer_approval' ? 'Proposed time:' : 'Requested time:'}</span> {order.booking_date ? new Date(`${order.booking_date}T00:00:00`).toLocaleDateString("en-MY", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : "Date not set"}{order.booking_time ? ` at ${order.booking_time}` : ""}
+                            </div>
+                          )}
+
+                          <div className="flex flex-wrap gap-2">
+                            {order.status === "pending" && (
+                              <>
+                                <button onClick={() => updateOrderStatus(order.id, "confirmed")} className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700">Accept Request</button>
+                                <button onClick={() => setProposeModal(order.id)} className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-semibold hover:bg-purple-700">Propose New Time</button>
+                                <button onClick={() => setRejectModal(order.id)} className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-xs font-semibold hover:bg-red-600">Decline Request</button>
+                              </>
+                            )}
+                            {order.status === "confirmed" && (
+                              <button
+                                onClick={() => { setPaymentCollected(false); setDeliverConfirmModal(order.id); }}
+                                className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700"
+                              >
+                                Mark as Completed
+                              </button>
+                            )}
+                            {order.whatsapp && (
+                              <a href={`https://wa.me/${order.whatsapp}`} target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 bg-[#25D366] text-white rounded-lg text-xs font-semibold hover:bg-[#1ebe5d]">
+                                Message Buyer
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
 
           {/* ── Reviews ──────────────────────────────────────────────────────── */}
           {tab === "reviews" && (
@@ -1216,6 +1390,31 @@ export default function SellerDashboard() {
         </div>
       )}
 
+      {/* ── Propose New Time Modal ────────────────────────────────────────────── */}
+      {proposeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setProposeModal(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <h3 className="font-bold text-stone-900 mb-2" style={{ fontFamily: "Lora, serif" }}>Propose New Time</h3>
+            <p className="text-sm text-stone-500 mb-4">Send a counter-offer for the requested service slot.</p>
+            <div className="space-y-3 mb-5">
+              <div>
+                <label className="block text-xs font-medium text-stone-600 mb-1">New Date</label>
+                <input type="date" value={proposedDate} onChange={(e) => setProposedDate(e.target.value)} className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm bg-stone-50" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-stone-600 mb-1">New Time</label>
+                <input type="time" value={proposedTime} onChange={(e) => setProposedTime(e.target.value)} className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm bg-stone-50" />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setProposeModal(null)} className="flex-1 py-2 border border-stone-200 rounded-lg text-sm">Cancel</button>
+              <button onClick={() => void handleProposeTime()} disabled={!proposedDate || !proposedTime} className="flex-1 py-2 bg-purple-600 text-white rounded-lg text-sm font-semibold hover:bg-purple-700 disabled:opacity-50">Send Offer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Deliver + collect payment confirm modal ───────────────────────────── */}
       {deliverConfirmModal && (() => {
         const order = orders.find((o) => o.id === deliverConfirmModal);
@@ -1518,13 +1717,47 @@ export default function SellerDashboard() {
                 <div><label className="block text-xs font-medium text-stone-600 mb-1">Price (RM) *</label><input type="number" min="0" step="0.01" value={serviceForm.price} onChange={(e) => setServiceForm((f) => ({ ...f, price: e.target.value }))} className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm bg-stone-50" /></div>
                 <div><label className="block text-xs font-medium text-stone-600 mb-1">Price Type</label><select value={serviceForm.priceType} onChange={(e) => setServiceForm((f) => ({ ...f, priceType: e.target.value }))} className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm bg-stone-50"><option>Fixed price</option><option>Starting from</option><option>Per hour</option><option>Per session</option></select></div>
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-stone-600 mb-1">Turnaround *</label>
+                    <div className="flex gap-2">
+                      <input type="number" min="1" value={serviceForm.turnaroundNum} onChange={(e) => setServiceForm((f) => ({ ...f, turnaroundNum: e.target.value }))} className="w-1/2 px-3 py-2 border border-stone-200 rounded-lg text-sm bg-stone-50" />
+                      <select value={serviceForm.turnaroundUnit} onChange={(e) => setServiceForm((f) => ({ ...f, turnaroundUnit: e.target.value }))} className="w-1/2 px-3 py-2 border border-stone-200 rounded-lg text-sm bg-stone-50">
+                        <option>Days</option><option>Weeks</option><option>Months</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-stone-600 mb-1">Availability (Working Days)</label>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+                      <label key={day} className="flex items-center gap-1.5 text-sm">
+                        <input 
+                          type="checkbox" 
+                          checked={serviceForm.availDays.includes(day)}
+                          onChange={(e) => {
+                            if (e.target.checked) setServiceForm(f => ({ ...f, availDays: [...f.availDays, day] }));
+                            else setServiceForm(f => ({ ...f, availDays: f.availDays.filter(d => d !== day) }));
+                          }}
+                          className="rounded border-stone-300 text-[#1C3270] focus:ring-[#1C3270]"
+                        />
+                        {day}
+                      </label>
+                    ))}
+                  </div>
+                  <label className="block text-xs font-medium text-stone-600 mb-1">Working Hours</label>
+                  <div className="flex items-center gap-2">
+                    <input type="time" value={serviceForm.availStart} onChange={(e) => setServiceForm(f => ({ ...f, availStart: e.target.value }))} className="flex-1 px-3 py-2 border border-stone-200 rounded-lg text-sm bg-stone-50" />
+                    <span className="text-stone-400">to</span>
+                    <input type="time" value={serviceForm.availEnd} onChange={(e) => setServiceForm(f => ({ ...f, availEnd: e.target.value }))} className="flex-1 px-3 py-2 border border-stone-200 rounded-lg text-sm bg-stone-50" />
+                  </div>
+                </div>
               <div><label className="block text-xs font-medium text-stone-600 mb-1">Category *</label><select value={serviceForm.category} onChange={(e) => setServiceForm((f) => ({ ...f, category: e.target.value }))} className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm bg-stone-50"><option value="">Select...</option>{categories.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}</select></div>
               <div><label className="block text-xs font-medium text-stone-600 mb-1">Description *</label><textarea value={serviceForm.description} onChange={(e) => setServiceForm((f) => ({ ...f, description: e.target.value }))} rows={3} placeholder="Explain the service and who it is for." className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm bg-stone-50 resize-none" /></div>
               <div><label className="block text-xs font-medium text-stone-600 mb-1">What's Included * </label><textarea value={serviceForm.whatIncluded} onChange={(e) => setServiceForm((f) => ({ ...f, whatIncluded: e.target.value }))} rows={4} placeholder="List deliverables, revisions, files, sessions, materials, etc." className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm bg-stone-50 resize-none" /></div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className="block text-xs font-medium text-stone-600 mb-1">Turnaround *</label><input value={serviceForm.turnaround} onChange={(e) => setServiceForm((f) => ({ ...f, turnaround: e.target.value }))} placeholder="2–3 working days" className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm bg-stone-50" /></div>
-                <div><label className="block text-xs font-medium text-stone-600 mb-1">Availability</label><select value={serviceForm.availability} onChange={(e) => setServiceForm((f) => ({ ...f, availability: e.target.value }))} className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm bg-stone-50"><option value="available">Available now</option><option value="slots_open">Slots open this week</option><option value="fully_booked">Fully booked</option></select></div>
-              </div>
+
               <div><label className="block text-xs font-medium text-stone-600 mb-1">Service Image (optional)</label><label className="block border-2 border-dashed border-stone-200 rounded-lg p-4 text-center cursor-pointer hover:border-[#1C3270]"><input type="file" accept="image/*" className="hidden" onChange={(e) => { const file=e.target.files?.[0]; if(!file)return; const err=validateImageFile(file); if(err){setServiceImageError(err);return;} setServiceImageError(""); setServiceImageFile(file); setServiceImagePreview(URL.createObjectURL(file)); e.target.value=""; }} />{serviceImagePreview ? <img src={serviceImagePreview} alt="Service preview" className="h-28 w-full object-cover rounded-lg" /> : <span className="text-xs text-stone-400">📸 Upload service image</span>}</label>{serviceImageError && <p className="text-xs text-red-500 mt-1">{serviceImageError}</p>}</div>
             </div>
             <div className="flex gap-3 mt-5"><button onClick={closeAddService} className="flex-1 py-2.5 border border-stone-200 rounded-xl text-sm">Cancel</button><button onClick={() => void handleAddService()} disabled={serviceImageUploading} className="flex-1 py-2.5 bg-[#1C3270] text-white rounded-xl text-sm font-bold disabled:opacity-50">{serviceImageUploading ? "Saving…" : "Add Service"}</button></div>

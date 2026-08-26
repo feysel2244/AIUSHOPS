@@ -14,3 +14,6 @@ entrypoint = "./functions/upload-to-cloudinary/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/upload-to-cloudinary/*.html" ]
+
+[functions.send-web-push]
+verify_jwt = false

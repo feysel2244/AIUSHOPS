@@ -43,6 +43,7 @@ type Order = {
 
 const STATUS_MAP: Record<string, "pending" | "confirmed" | "ready" | "delivered" | "cancelled"> = {
   pending: "pending",
+  pending_buyer_approval: "pending",
   confirmed: "confirmed",
   ready: "ready",
   completed: "delivered",
@@ -249,7 +250,7 @@ export default function MyOrdersPage() {
     setLoading(true);
     const { data, error: queryError } = await supabase
       .from("orders")
-      .select("id,order_code,shop_id,type,status,total,payment_method,payment_status,payment_timing,payment_confirmed_by,payment_verified_by_seller,created_at,shops(name,slug,owner:profiles(whatsapp)),order_items(id,product_id,service_id,name,price,quantity)")
+      .select("id,order_code,shop_id,type,status,total,payment_method,payment_status,payment_timing,payment_confirmed_by,payment_verified_by_seller,booking_date,booking_time,created_at,shops(name,slug,owner:profiles(whatsapp)),order_items(id,product_id,service_id,name,price,quantity)")
       .eq("buyer_id", user.id)
       .order("created_at", { ascending: false });
     setLoading(false);
@@ -267,13 +268,29 @@ export default function MyOrdersPage() {
     setSubmitted(reviewedKeys);
   }
 
+  async function acceptProposedTime(orderId: string) {
+    if (!user) return;
+    const { error: updateError } = await supabase
+      .from("orders")
+      .update({ status: "confirmed" })
+      .eq("id", orderId)
+      .eq("buyer_id", user.id);
+    
+    if (updateError) {
+      console.error("Error accepting time:", updateError.message);
+      setError("Could not accept the proposed time: " + updateError.message);
+      return;
+    }
+    setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, status: "confirmed" } : o));
+  }
+
   async function cancelOrder(order: Order) {
-    if (order.status !== "pending") return;
+    if (order.status !== "pending" && order.status !== "pending_buyer_approval") return;
     const { error: updateError } = await supabase
       .from("orders")
       .update({ status: "cancelled" })
       .eq("id", order.id)
-      .eq("status", "pending");
+      .eq("buyer_id", user!.id);
     if (updateError) { setError(updateError.message); return; }
     setOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, status: "cancelled" } : o));
   }
@@ -355,7 +372,7 @@ export default function MyOrdersPage() {
     );
   }
 
-  const activeOrders = orders.filter((o) => ["pending", "confirmed", "ready"].includes(o.status));
+  const activeOrders = orders.filter((o) => ["pending", "pending_buyer_approval", "confirmed", "ready"].includes(o.status));
   const completedOrders = orders.filter((o) => o.status === "completed");
   const cancelledOrders = orders.filter((o) => ["cancelled", "rejected"].includes(o.status));
   const visibleOrders = tab === "active" ? activeOrders : tab === "completed" ? completedOrders : cancelledOrders;
@@ -434,6 +451,23 @@ export default function MyOrdersPage() {
                   <button onClick={() => cancelOrder(order)} className="px-3 py-1.5 text-xs font-medium border border-red-200 text-red-500 rounded-lg hover:bg-red-50 transition-colors">
                     Cancel Order
                   </button>
+                )}
+
+                {order.status === "pending_buyer_approval" && (
+                  <div className="w-full mt-2 p-3 bg-purple-50 border border-purple-200 rounded-xl text-sm">
+                    <p className="font-semibold text-purple-800 mb-1">Seller proposed a new time:</p>
+                    <p className="text-purple-700 mb-3">
+                      {order.booking_date ? new Date(`${order.booking_date}T00:00:00`).toLocaleDateString("en-MY", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : ""} {order.booking_time ? `at ${order.booking_time}` : ""}
+                    </p>
+                    <div className="flex gap-2">
+                      <button onClick={() => void acceptProposedTime(order.id)} className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700">
+                        Accept Time
+                      </button>
+                      <button onClick={() => void cancelOrder(order)} className="px-3 py-1.5 border border-red-200 text-red-600 rounded-lg text-xs font-semibold hover:bg-red-50">
+                        Decline & Cancel
+                      </button>
+                    </div>
+                  </div>
                 )}
 
                 {/* Pay now button — for unpaid "now" orders or unconfirmed service bookings */}

@@ -125,7 +125,7 @@ export async function confirmPaymentBySeller(orderId: string): Promise<void> {
 
 // ─── Notifications ────────────────────────────────────────────────────────────
 
-/** Insert a notification for the shop owner (seller) about a new paid order. */
+/** Insert a notification for the shop owner (seller) when a buyer submits payment proof ("I've Paid"). */
 export async function notifySellerNewOrder(
   shopId: string,
   buyerName: string,
@@ -141,15 +141,16 @@ export async function notifySellerNewOrder(
 
   const { error } = await supabase.from("notifications").insert({
     user_id: shopRow.owner_id,
-    icon: "🛍️",
-    title: "New paid order",
-    body: `${buyerName} just paid RM${amount.toFixed(2)} for an order. Please verify you received it before preparing.`,
+    icon: "💳",
+    title: "Payment proof submitted",
+    body: `${buyerName} submitted payment proof for RM${amount.toFixed(2)}. Please verify you received it in your account before preparing the order.`,
     type: "order",
-    link_to: "/orders",
+    link_to: "/seller/dashboard",
     is_unread: true,
   });
-  if (error) console.error("Could not create seller order notification:", error.message);
+  if (error) console.error("Could not create seller payment notification:", error.message);
 }
+
 
 
 /** Notify the buyer immediately after they confirm payment. */

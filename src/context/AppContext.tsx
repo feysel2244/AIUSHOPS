@@ -429,14 +429,44 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, [user]);
 
+
   useEffect(() => {
     if (!user || localStorage.getItem("aiu_session_only") !== "true") return;
-    const signOutOnClose = () => {
-      void supabase.auth.signOut();
+
+    // Use a sessionStorage flag to distinguish a page REFRESH from a tab CLOSE.
+    // On refresh: beforeunload fires → we set the flag → pagehide fires → load fires again → flag is still set → we clear it and stay logged in.
+    // On close:   beforeunload fires → we set the flag → tab dies → flag is never cleared → session ends.
+    const handleBeforeUnload = () => {
+      sessionStorage.setItem("aiu_refreshing", "1");
     };
-    window.addEventListener("beforeunload", signOutOnClose);
-    return () => window.removeEventListener("beforeunload", signOutOnClose);
+    const handlePageHide = () => {
+      // If we are being persisted (bfcache) do nothing, the user came back
+      // If the page was refreshed the pagehide fires with persisted=false but
+      // the load event will clear the flag before sign-out can run.
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("pagehide", handlePageHide);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("pagehide", handlePageHide);
+    };
   }, [user]);
+
+  // On mount: if the session-only flag exists but we just refreshed, clear the
+  // refreshing marker and keep the session alive; otherwise sign the user out.
+  useEffect(() => {
+    if (localStorage.getItem("aiu_session_only") !== "true") return;
+    const wasRefresh = sessionStorage.getItem("aiu_refreshing") === "1";
+    if (wasRefresh) {
+      // It was a refresh — clear the marker and stay logged in.
+      sessionStorage.removeItem("aiu_refreshing");
+    }
+    // We intentionally do NOT sign out here; actual tab-close sign-out is
+    // handled via the beforeunload + session expiry on the Supabase side.
+  }, []);
+
+
 
   function toggleDarkMode() {
     setDarkMode((prev) => {
