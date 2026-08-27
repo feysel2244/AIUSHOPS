@@ -797,32 +797,38 @@ export default function SellerDashboard() {
               </div>
               <div className="divide-y divide-stone-50">
                 {listings.length === 0 ? <div className="p-8 text-sm text-stone-500 text-center">No listings yet.</div> : listings.map((item) => (
-                  <div key={`${item.type}-${item.id}`} className="flex items-center gap-4 px-5 py-4">
-                    <div className="w-12 h-12 bg-stone-100 rounded-lg overflow-hidden flex-shrink-0">
+                  <div key={`${item.type}-${item.id}`} className="flex items-start gap-3 px-5 py-4">
+                    {/* Thumbnail */}
+                    <div className="w-11 h-11 bg-stone-100 rounded-lg overflow-hidden flex-shrink-0 mt-0.5">
                       {(item.images?.[0] || item.image)
                         ? <img src={item.images?.[0] ?? item.image} alt={item.name} className="w-full h-full object-cover" />
-                        : <div className="w-full h-full flex items-center justify-center text-stone-400 text-xs">Listing</div>}
+                        : <div className="w-full h-full flex items-center justify-center text-stone-400 text-xs">📦</div>}
                     </div>
+                    {/* Info + actions */}
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm text-stone-900 line-clamp-1">{item.name}</div>
-                      <div className="text-xs text-stone-400">{item.type === "service" ? "Service" : "Product"} — {item.category}</div>
-                    </div>
-                    <div className="text-sm font-bold text-[#1C3270] flex-shrink-0">RM {Number(item.price).toFixed(2)}</div>
-                    {item.promoted && <Badge variant="promoted" className="flex-shrink-0" />}
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <button
-                        onClick={() => openEditListing(item)}
-                        className="text-xs px-2.5 py-1 border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50 transition-colors"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => void removeListing(item)}
-                        className="text-xs px-2.5 py-1 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 transition-colors"
-                      >
-                        Remove
-                      </button>
-                      <button onClick={() => void openPromoteModal(`${item.type}:${item.id}`)} className="text-xs px-2.5 py-1 border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50 transition-colors">Promote</button>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="font-semibold text-sm text-stone-900 line-clamp-1">{item.name}</div>
+                          <div className="text-xs text-stone-400 mt-0.5">{item.type === "service" ? "Service" : "Product"} · {item.category}</div>
+                        </div>
+                        <div className="text-sm font-bold text-[#1C3270] flex-shrink-0 mt-0.5">RM {Number(item.price).toFixed(2)}</div>
+                      </div>
+                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        {item.promoted && <Badge variant="promoted" />}
+                        <button
+                          onClick={() => openEditListing(item)}
+                          className="text-xs px-2.5 py-1 border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50 transition-colors"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => void removeListing(item)}
+                          className="text-xs px-2.5 py-1 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 transition-colors"
+                        >
+                          Remove
+                        </button>
+                        <button onClick={() => void openPromoteModal(`${item.type}:${item.id}`)} className="text-xs px-2.5 py-1 border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50 transition-colors">Promote</button>
+                      </div>
                     </div>
                   </div>
                 ))}
