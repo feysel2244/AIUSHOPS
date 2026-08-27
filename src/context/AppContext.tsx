@@ -396,7 +396,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
           if (preferenceAllows(notificationPreferences, incoming.type)) {
             if (notificationPreferences.sound) playNotificationSound();
-            if (notificationPreferences.browserNotifications) showBrowserNotification(incoming.title, incoming.body, incoming.linkTo);
           }
 
           setNotifications((prev) => {
