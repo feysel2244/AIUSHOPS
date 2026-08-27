@@ -394,11 +394,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
             linkTo: row.link_to || undefined,
           };
 
+          if (preferenceAllows(notificationPreferences, incoming.type)) {
+            if (notificationPreferences.sound) playNotificationSound();
+            if (notificationPreferences.browserNotifications) showBrowserNotification(incoming.title, incoming.body, incoming.linkTo);
+          }
+
           setNotifications((prev) => {
             if (prev.some((n) => n.id === incoming.id)) return prev;
             if (!preferenceAllows(notificationPreferences, incoming.type)) return prev;
-            if (notificationPreferences.sound) playNotificationSound();
-            if (notificationPreferences.browserNotifications) showBrowserNotification(incoming.title, incoming.body, incoming.linkTo);
             return [incoming, ...prev];
           });
         }
