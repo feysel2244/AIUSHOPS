@@ -18,7 +18,7 @@ export default function Footer() {
             <div className="flex items-center gap-3 mt-4">
               {[
                 ["Instagram", "https://www.instagram.com/fan_buildss?igsi=MWV5eWs5emx2azZjcg%3D%3D&utm_source=qr"],
-                ["WhatsApp", "https://wa.me/601161833975"],
+                ["WhatsApp", "https://wa.me/60161833975"],
                 ["Telegram", "https://t.me/+251949448813"],
               ].map(([label, href]) => (
                 <a
