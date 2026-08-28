@@ -4,7 +4,7 @@ const CONTACT_PEOPLE = [
   {
     name: "Fesel Anwar surur",
     email: "feyselanwar2244@gmail.com",
-    linkedin: "https://www.linkedin.com/in/feysel-anwar-64957225b/",
+    linkedin: "https://www.linkedin.com/in/feysel-anwar-a536a7335/",
   },
   {
     name: "Naeem Abbas",
