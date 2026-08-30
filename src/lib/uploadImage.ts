@@ -23,11 +23,12 @@ export function validateImageFile(file: File): string {
 }
 
 /**
- * Upload a file to Supabase Storage
- * and return its public URL.
+ * Upload a file to Cloudinary
+ * through the Supabase Edge Function.
  *
- * This function is still used for your
- * existing Supabase Storage uploads.
+ * Cloudinary credentials are kept inside
+ * Supabase Edge Function secrets and are
+ * never exposed to the browser.
  */
 export async function uploadImage(
   bucket: string,
@@ -40,56 +41,10 @@ export async function uploadImage(
     throw new Error(validationError);
   }
 
-  if (!supabase.storage) {
-    throw new Error(
-      "Storage is not available. Please check your Supabase configuration."
-    );
-  }
-
-  const { error } = await supabase.storage
-    .from(bucket)
-    .upload(path, file, {
-      upsert: false,
-      contentType: file.type,
-    });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const { data } = supabase.storage
-    .from(bucket)
-    .getPublicUrl(path);
-
-  return data.publicUrl;
-}
-
-/**
- * Upload a product image to Cloudinary
- * through the Supabase Edge Function.
- *
- * Cloudinary credentials are kept inside
- * Supabase Edge Function secrets and are
- * never exposed to the browser.
- */
-export async function uploadProductImage(
-  file: File,
-  shopId: string,
-  productId: string
-): Promise<string> {
-  // Validate the image before uploading
-  const validationError = validateImageFile(file);
-
-  if (validationError) {
-    throw new Error(validationError);
-  }
-
   // Prepare form data
   const formData = new FormData();
 
   formData.append("file", file);
-  formData.append("shop_id", shopId);
-  formData.append("product_id", productId);
 
   // Send the image to the Supabase Edge Function
   const { data, error } = await supabase.functions.invoke(

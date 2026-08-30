@@ -38,6 +38,9 @@ type RealUser = {
   is_suspended: boolean;
 };
 type RealCategory = { id: string; name: string; icon: string; sort_order: number; };
+type MigrationStatus = "idle" | "running" | "done" | "error";
+type MigrationLog = { productId: string; name: string; status: "ok" | "fail"; detail: string };
+
 type PlatStats = { totalOrders: number; totalUsers: number; paidOrderCount: number; gmv: number; promoRevenue: number; };
 type CommissionSettlementRequest = {
   id: string;
@@ -93,6 +96,224 @@ export default function AdminPanel() {
   const [announcementSaveError, setAnnouncementSaveError] = useState("");
   const [platForm, setPlatForm] = useState({ bank_name: "", account_name: "", account_number: "" });
   const platQrRef = useRef<HTMLInputElement>(null);
+
+  // Cloudinary image migration
+  const [migStatus, setMigStatus] = useState<MigrationStatus>("idle");
+  const [migTotal, setMigTotal] = useState(0);
+  const [migDone, setMigDone] = useState(0);
+  const [migLogs, setMigLogs] = useState<MigrationLog[]>([]);
+  const [migError, setMigError] = useState("");
+
+  async function migrateProductImagesToCloudinary() {
+    setMigStatus("running");
+    setMigLogs([]);
+    setMigError("");
+    setMigDone(0);
+    setMigTotal(0);
+
+    // Helper: download a URL and re-upload to Cloudinary
+    async function reupload(url: string): Promise<string> {
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const blob = await resp.blob();
+      const mimeType = blob.type || "image/jpeg";
+      const ext = mimeType.split("/")[1] ?? "jpg";
+      const file = new File([blob], `image.${ext}`, { type: mimeType });
+      const formData = new FormData();
+      formData.append("file", file);
+      const { data, error } = await supabase.functions.invoke("upload-to-cloudinary", { body: formData });
+      if (error || !data?.url) throw new Error(error?.message ?? data?.error ?? "Upload failed");
+      return data.url as string;
+    }
+
+    function needsMigration(url: string) {
+      return url && !url.includes("res.cloudinary.com") && !url.includes("unsplash.com");
+    }
+
+    try {
+      // ── 1. Fetch products ──────────────────────────────────────────────────
+      const { data: products, error: prodErr } = await supabase
+        .from("products")
+        .select("id, name, images")
+        .not("images", "is", null);
+      if (prodErr) throw new Error(prodErr.message);
+
+      // ── 2. Fetch services ──────────────────────────────────────────────────
+      const { data: services, error: svcErr } = await supabase
+        .from("services")
+        .select("id, name, image")
+        .not("image", "is", null);
+      if (svcErr) throw new Error(svcErr.message);
+
+      // ── 3. Fetch shops (logos & banners) ───────────────────────────────────
+      const { data: shops, error: shopErr } = await supabase
+        .from("shops")
+        .select("id, name, logo_url, banner_url");
+      if (shopErr) throw new Error(shopErr.message);
+
+      // Filter to only rows that need migration
+      const productsToMigrate = (products ?? []).filter((p: any) =>
+        (p.images ?? []).some((url: string) => needsMigration(url))
+      );
+      const servicesToMigrate = (services ?? []).filter((s: any) =>
+        needsMigration(s.image ?? "")
+      );
+      const shopsToMigrate = (shops ?? []).filter((s: any) =>
+        needsMigration(s.logo_url ?? "") || needsMigration(s.banner_url ?? "")
+      );
+
+      const total = productsToMigrate.length + servicesToMigrate.length + shopsToMigrate.length;
+      setMigTotal(total);
+
+      if (total === 0) {
+        setMigStatus("done");
+        return;
+      }
+
+      // ── Migrate products ───────────────────────────────────────────────────
+      for (const product of productsToMigrate) {
+        const oldImages: string[] = product.images ?? [];
+        const newImages: string[] = [];
+        let anyFailed = false;
+
+        for (const url of oldImages) {
+          if (!needsMigration(url)) { newImages.push(url); continue; }
+          try {
+            newImages.push(await reupload(url));
+          } catch {
+            newImages.push(url); // keep original on failure
+            anyFailed = true;
+          }
+        }
+
+        const { error: updateErr } = await supabase
+          .from("products")
+          .update({ images: newImages })
+          .eq("id", product.id);
+
+        setMigLogs((prev) => [
+          ...prev,
+          {
+            productId: product.id,
+            name: `🛒 ${product.name}`,
+            status: anyFailed || updateErr ? "fail" : "ok",
+            detail: updateErr
+              ? updateErr.message
+              : anyFailed
+              ? "Some images failed — originals kept"
+              : `Migrated ${newImages.length} image(s)`,
+          },
+        ]);
+        setMigDone((d) => d + 1);
+      }
+
+      // ── Migrate services ───────────────────────────────────────────────────
+      for (const service of servicesToMigrate) {
+        let newUrl = service.image;
+        let failed = false;
+
+        try {
+          newUrl = await reupload(service.image);
+        } catch {
+          failed = true;
+        }
+
+        const { error: updateErr } = !failed
+          ? await supabase.from("services").update({ image: newUrl }).eq("id", service.id)
+          : { error: null };
+
+        setMigLogs((prev) => [
+          ...prev,
+          {
+            productId: service.id,
+            name: `🔧 ${service.name}`,
+            status: failed || updateErr ? "fail" : "ok",
+            detail: updateErr
+              ? updateErr.message
+              : failed
+              ? "Image failed — original kept"
+              : "Migrated 1 image",
+          },
+        ]);
+        setMigDone((d) => d + 1);
+      }
+
+      // ── Migrate shops ──────────────────────────────────────────────────────
+      for (const shop of shopsToMigrate) {
+        let newLogo = shop.logo_url;
+        let newBanner = shop.banner_url;
+        let newQr = shop.payment_qr_url;
+        let failed = false;
+
+        if (needsMigration(shop.logo_url ?? "")) {
+          try { newLogo = await reupload(shop.logo_url); } catch { failed = true; }
+        }
+        if (needsMigration(shop.banner_url ?? "")) {
+          try { newBanner = await reupload(shop.banner_url); } catch { failed = true; }
+        }
+        if (needsMigration(shop.payment_qr_url ?? "")) {
+          try { newQr = await reupload(shop.payment_qr_url); } catch { failed = true; }
+        }
+
+        const { error: updateErr } = !failed
+          ? await supabase.from("shops").update({ logo_url: newLogo, banner_url: newBanner, payment_qr_url: newQr }).eq("id", shop.id)
+          : { error: null };
+
+        setMigLogs((prev) => [
+          ...prev,
+          {
+            productId: shop.id,
+            name: `🏪 ${shop.name}`,
+            status: failed || updateErr ? "fail" : "ok",
+            detail: updateErr
+              ? updateErr.message
+              : failed
+              ? "Shop image failed — original kept"
+              : "Migrated shop images",
+          },
+        ]);
+        setMigDone((d) => d + 1);
+      }
+
+      // ── 5. Fetch and Migrate Avatars ───────────────────────────────────────
+      const { data: profiles } = await supabase.from("profiles").select("id, name, avatar_url").not("avatar_url", "is", null);
+      const avatarsToMigrate = (profiles ?? []).filter((p: any) => needsMigration(p.avatar_url ?? ""));
+      setMigTotal((t) => t + avatarsToMigrate.length);
+
+      for (const profile of avatarsToMigrate) {
+        try {
+          const newAvatar = await reupload(profile.avatar_url);
+          await supabase.from("profiles").update({ avatar_url: newAvatar }).eq("id", profile.id);
+          setMigLogs((prev) => [...prev, { productId: profile.id, name: `👤 ${profile.name}`, status: "ok", detail: "Migrated avatar" }]);
+        } catch {
+          setMigLogs((prev) => [...prev, { productId: profile.id, name: `👤 ${profile.name}`, status: "fail", detail: "Avatar failed" }]);
+        }
+        setMigDone((d) => d + 1);
+      }
+
+      // ── 6. Fetch and Migrate Payment Proofs ────────────────────────────────
+      const { data: orders } = await supabase.from("orders").select("id, order_code, payment_proof_url").not("payment_proof_url", "is", null);
+      const ordersToMigrate = (orders ?? []).filter((o: any) => needsMigration(o.payment_proof_url ?? ""));
+      setMigTotal((t) => t + ordersToMigrate.length);
+
+      for (const order of ordersToMigrate) {
+        try {
+          const newProof = await reupload(order.payment_proof_url);
+          await supabase.from("orders").update({ payment_proof_url: newProof }).eq("id", order.id);
+          setMigLogs((prev) => [...prev, { productId: order.id, name: `🧾 Order ${order.order_code}`, status: "ok", detail: "Migrated proof" }]);
+        } catch {
+          setMigLogs((prev) => [...prev, { productId: order.id, name: `🧾 Order ${order.order_code}`, status: "fail", detail: "Proof failed" }]);
+        }
+        setMigDone((d) => d + 1);
+      }
+
+      setMigStatus("done");
+    } catch (err) {
+      setMigError(err instanceof Error ? err.message : "Migration failed");
+      setMigStatus("error");
+    }
+  }
+
 
   async function loadPromotions() {
     const { data } = await supabase
@@ -1051,6 +1272,78 @@ export default function AdminPanel() {
                 {announcementSaveError && <p className="text-xs text-red-500 mb-3">{announcementSaveError}</p>}
                 <button onClick={() => void saveAnnouncement()} disabled={announcementSaving} className="px-5 py-2 bg-[#1C3270] text-white rounded-lg text-sm font-medium hover:bg-[#0F1F4A] transition-colors disabled:opacity-60">
                   {announcementSaving ? "Saving..." : announcementText.trim() ? "Save Banner Text" : "Remove Banner"}
+                </button>
+              </div>
+
+              {/* ── Cloudinary Image Migration ── */}
+              <div className="bg-white rounded-2xl border border-stone-100 p-5">
+                <h3 className="font-bold text-stone-900 mb-1" style={{ fontFamily: "Lora, serif" }}>
+                  🖼️ Migrate Images to Cloudinary
+                </h3>
+                <p className="text-xs text-stone-400 mb-4">
+                  Finds all product and service images still stored in Supabase Storage and re-uploads them to Cloudinary.
+                  Entries prefixed with 🛒 are products, 🔧 are services. Original URLs are kept if any upload fails. Safe to run multiple times.
+                </p>
+
+                {/* Progress bar */}
+                {(migStatus === "running" || migStatus === "done") && migTotal > 0 && (
+                  <div className="mb-4">
+                    <div className="flex justify-between text-xs text-stone-500 mb-1">
+                      <span>{migDone} / {migTotal} products processed</span>
+                      <span>{Math.round((migDone / migTotal) * 100)}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-stone-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-[#1C3270] rounded-full transition-all"
+                        style={{ width: `${Math.round((migDone / migTotal) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Done — all already migrated */}
+                {migStatus === "done" && migTotal === 0 && (
+                  <p className="text-sm text-green-600 font-medium mb-3">✅ All product images are already on Cloudinary!</p>
+                )}
+
+                {/* Done with results */}
+                {migStatus === "done" && migTotal > 0 && (
+                  <p className="text-sm text-green-600 font-medium mb-3">
+                    ✅ Migration complete — {migLogs.filter((l) => l.status === "ok").length} succeeded,{" "}
+                    {migLogs.filter((l) => l.status === "fail").length} had issues.
+                  </p>
+                )}
+
+                {/* Error */}
+                {migStatus === "error" && (
+                  <p className="text-sm text-red-500 mb-3">❌ {migError}</p>
+                )}
+
+                {/* Per-product log */}
+                {migLogs.length > 0 && (
+                  <div className="max-h-48 overflow-y-auto rounded-xl border border-stone-100 bg-stone-50 mb-4 divide-y divide-stone-100">
+                    {migLogs.map((log) => (
+                      <div key={log.productId} className="flex items-start gap-2 px-3 py-2">
+                        <span className="text-xs mt-0.5">{log.status === "ok" ? "✅" : "⚠️"}</span>
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-stone-800 truncate">{log.name}</p>
+                          <p className="text-xs text-stone-400">{log.detail}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <button
+                  onClick={() => void migrateProductImagesToCloudinary()}
+                  disabled={migStatus === "running"}
+                  className="px-5 py-2 bg-[#1C3270] text-white rounded-lg text-sm font-medium hover:bg-[#0F1F4A] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {migStatus === "running"
+                    ? `Migrating… (${migDone}/${migTotal})`
+                    : migStatus === "done"
+                    ? "✅ Run Again"
+                    : "Start Migration"}
                 </button>
               </div>
             </div>

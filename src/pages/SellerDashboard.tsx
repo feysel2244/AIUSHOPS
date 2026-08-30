@@ -7,9 +7,8 @@ import { useApp } from "../context/AppContext";
 import { supabase } from "../lib/supabase";
 import { slugify } from "../lib/marketData";
 import {
-  uploadImage,
-  uploadProductImage,
   validateImageFile,
+  uploadImage,
 } from "../lib/uploadImage";
 import {
   fetchPlatformPaymentInfo,
@@ -522,11 +521,11 @@ export default function SellerDashboard() {
       for (let i = 0; i < productImageFiles.length; i++) {
             const file = productImageFiles[i];
         try {
-          const url = await uploadProductImage(
-  file,
-  shop.id,
-  newProduct.id
-);
+          const url = await uploadImage(
+            "product-images", // bucket arg (ignored)
+            "path",           // path arg (ignored)
+            file
+          );
           urls.push(url);
         } catch (uploadErr) {
           setProductImagesError(uploadErr instanceof Error ? uploadErr.message : "Some images failed to upload.");

@@ -4,6 +4,7 @@ import Badge from "../components/ui/Badge";
 import StarRating from "../components/ui/StarRating";
 import { useApp } from "../context/AppContext";
 import { supabase } from "../lib/supabase";
+import { uploadImage } from "../lib/uploadImage";
 import { refreshShopRating } from "../lib/reviews";
 import {
   fetchShopPaymentInfo,
@@ -79,34 +80,10 @@ function QRPayModal({
     setPaying(true);
     setErr("");
     try {
-      const extension = receiptFile.name.split(".").pop()?.toLowerCase() || "jpg";
-      const filePath = `${user.id}/${order.id}-${Date.now()}.${extension}`;
+      const paymentProofUrl = await uploadImage("payment-proofs", "path", receiptFile);
 
-      const { error: uploadError } = await supabase.storage
-        .from("payment-proofs")
-        .upload(filePath, receiptFile, {
-          cacheControl: "3600",
-          upsert: true,
-          contentType: receiptFile.type || "image/jpeg",
-        });
-
-      if (uploadError) throw uploadError;
-
-      const { data: publicUrlData } = supabase.storage
-        .from("payment-proofs")
-        .getPublicUrl(filePath);
-
-      const paymentProofUrl = publicUrlData.publicUrl;
-
-      const { error: proofError } = await supabase
-        .from("orders")
-        .update({ payment_proof_url: paymentProofUrl })
-        .eq("id", order.id)
-        .eq("buyer_id", user.id);
-
-      if (proofError) throw proofError;
-
-      await confirmPaymentByBuyer(order.id);
+      // confirmPaymentByBuyer saves the proof URL + updates order status in one call
+      await confirmPaymentByBuyer(order.id, paymentProofUrl);
       await notifySellerNewOrder(order.shop_id, user.name, Number(order.total));
       await notifyBuyerOrderConfirmed(user.id, order.shops?.name ?? "the seller", Number(order.total));
       onPaid();
