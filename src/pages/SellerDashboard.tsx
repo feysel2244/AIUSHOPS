@@ -485,7 +485,7 @@ export default function SellerDashboard() {
     if (!window.confirm("Delete your shop? Your shop will be permanently removed from the marketplace and can no longer receive new orders. Existing transaction records are retained.")) return;
     setDeletingShop(true);
     setError("");
-    const { error: deleteError } = await supabase.from("shops").update({ deleted_at: new Date().toISOString(), status: "deleted", is_open: false, is_paused: true }).eq("id", shop.id).eq("owner_id", user!.id);
+    const { error: deleteError } = await supabase.from("shops").update({ deleted_at: new Date().toISOString(), is_open: false, is_paused: true }).eq("id", shop.id).eq("owner_id", user!.id);
     if (deleteError) { setError(deleteError.message); setDeletingShop(false); return; }
     await supabase.from("profiles").update({ has_shop: false }).eq("id", user!.id);
     setDeletingShop(false);
