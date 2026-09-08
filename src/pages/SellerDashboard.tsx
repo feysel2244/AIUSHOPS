@@ -376,8 +376,8 @@ export default function SellerDashboard() {
       payload.availability = editingListing.availability || "available";
     }
     if (editingListing.type === "product") {
-      payload.stock_count = Number(editingListing.stock || 0);
-      payload.stock_status = payload.stock_count > 0 ? "in_stock" : "made_to_order";
+      payload.stock_count = editingListing.stock_status === "out_of_stock" ? 0 : Number(editingListing.stock || 0);
+      payload.stock_status = editingListing.stock_status === "out_of_stock" ? "out_of_stock" : (payload.stock_count > 0 ? "in_stock" : "made_to_order");
     }
     const { error: updateError } = await supabase.from(table).update(payload).eq("id", editingListing.id).eq("shop_id", shop.id);
     if (updateError) {
@@ -415,6 +415,23 @@ export default function SellerDashboard() {
     setListings((prev) =>
       prev.filter(
         (row) => !(row.id === item.id && row.type === item.type)
+      )
+    );
+  }
+
+  async function toggleProductFinished(item: any) {
+    const nextStatus = item.stock_status === "out_of_stock" ? "in_stock" : "out_of_stock";
+    const { error: toggleError } = await supabase
+      .from("products")
+      .update({ stock_status: nextStatus, stock_count: nextStatus === "out_of_stock" ? 0 : 1 })
+      .eq("id", item.id)
+      .eq("shop_id", shop.id);
+    if (toggleError) { setError(toggleError.message); return; }
+    setListings((prev) =>
+      prev.map((row) =>
+        row.id === item.id && row.type === "product"
+          ? { ...row, stock_status: nextStatus, stock_count: nextStatus === "out_of_stock" ? 0 : 1 }
+          : row
       )
     );
   }
@@ -468,7 +485,7 @@ export default function SellerDashboard() {
     if (!window.confirm("Delete your shop? Your shop will be permanently removed from the marketplace and can no longer receive new orders. Existing transaction records are retained.")) return;
     setDeletingShop(true);
     setError("");
-    const { error: deleteError } = await supabase.from("shops").update({ deleted_at: new Date().toISOString(), is_open: false, is_paused: true }).eq("id", shop.id).eq("owner_id", user!.id);
+    const { error: deleteError } = await supabase.from("shops").update({ deleted_at: new Date().toISOString(), status: "deleted", is_open: false, is_paused: true }).eq("id", shop.id).eq("owner_id", user!.id);
     if (deleteError) { setError(deleteError.message); setDeletingShop(false); return; }
     await supabase.from("profiles").update({ has_shop: false }).eq("id", user!.id);
     setDeletingShop(false);
@@ -509,8 +526,8 @@ export default function SellerDashboard() {
     const { data: newProduct, error: insertError } = await supabase.from("products").insert({
       shop_id: shop.id, slug, name: productForm.name, description: productForm.description,
       price: Number(productForm.price), category: productForm.category,
-      stock_status: Number(productForm.stock || 0) > 0 ? "in_stock" : "made_to_order",
-      stock_count: Number(productForm.stock || 0), images: [],
+      stock_status: productForm.stock === "finished" ? "out_of_stock" : (Number(productForm.stock || 0) > 0 ? "in_stock" : "made_to_order"),
+      stock_count: productForm.stock === "finished" ? 0 : Number(productForm.stock || 0), images: [],
     }).select("id").single();
     if (insertError || !newProduct) { setError(insertError?.message || "Could not create product"); return; }
 
@@ -808,12 +825,37 @@ export default function SellerDashboard() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <div className="font-semibold text-sm text-stone-900 line-clamp-1">{item.name}</div>
-                          <div className="text-xs text-stone-400 mt-0.5">{item.type === "service" ? "Service" : "Product"} · {item.category}</div>
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            <span className="text-xs text-stone-400">{item.type === "service" ? "Service" : "Product"} · {item.category}</span>
+                            {item.type === "product" && (
+                              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                                item.stock_status === "out_of_stock"
+                                  ? "bg-red-100 text-red-600"
+                                  : item.stock_status === "made_to_order"
+                                  ? "bg-purple-100 text-purple-600"
+                                  : "bg-green-100 text-green-700"
+                              }`}>
+                                {item.stock_status === "out_of_stock" ? "Finished / Sold out" : item.stock_status === "made_to_order" ? "Made to order" : `In stock${item.stock_count > 0 ? ` (${item.stock_count})` : ""}`}
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <div className="text-sm font-bold text-[#1C3270] flex-shrink-0 mt-0.5">RM {Number(item.price).toFixed(2)}</div>
                       </div>
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
                         {item.promoted && <Badge variant="promoted" />}
+                        {item.type === "product" && (
+                          <button
+                            onClick={() => void toggleProductFinished(item)}
+                            className={`text-xs px-2.5 py-1 rounded-lg font-medium transition-colors border ${
+                              item.stock_status === "out_of_stock"
+                                ? "border-green-300 text-green-700 hover:bg-green-50"
+                                : "border-orange-300 text-orange-700 hover:bg-orange-50"
+                            }`}
+                          >
+                            {item.stock_status === "out_of_stock" ? "✓ Mark Available" : "Mark Finished"}
+                          </button>
+                        )}
                         <button
                           onClick={() => openEditListing(item)}
                           className="text-xs px-2.5 py-1 border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50 transition-colors"
@@ -1670,9 +1712,28 @@ export default function SellerDashboard() {
                   <input type="number" value={editingListing.price} onChange={(e) => setEditingListing((v: any) => ({ ...v, price: e.target.value }))} className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm bg-stone-50" />
                 </div>
                 {editingListing.type === "product" && (
-                  <div>
-                    <label className="block text-xs font-medium text-stone-600 mb-1">Stock Quantity</label>
-                    <input type="number" value={editingListing.stock} onChange={(e) => setEditingListing((v: any) => ({ ...v, stock: e.target.value }))} className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm bg-stone-50" />
+                  <div className="space-y-2">
+                    <div>
+                      <label className="block text-xs font-medium text-stone-600 mb-1">Stock Status</label>
+                      <select
+                        value={editingListing.stock_status === "out_of_stock" ? "finished" : "available"}
+                        onChange={(e) => setEditingListing((v: any) => ({
+                          ...v,
+                          stock_status: e.target.value === "finished" ? "out_of_stock" : "in_stock",
+                          stock: e.target.value === "finished" ? "0" : v.stock,
+                        }))}
+                        className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm bg-stone-50"
+                      >
+                        <option value="available">Available</option>
+                        <option value="finished">Finished / Sold out</option>
+                      </select>
+                    </div>
+                    {editingListing.stock_status !== "out_of_stock" && (
+                      <div>
+                        <label className="block text-xs font-medium text-stone-600 mb-1">Stock Quantity <span className="text-stone-400 font-normal">(optional)</span></label>
+                        <input type="number" min="0" value={editingListing.stock} onChange={(e) => setEditingListing((v: any) => ({ ...v, stock: e.target.value }))} placeholder="Leave blank for delivery/made-to-order" className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm bg-stone-50" />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1782,8 +1843,17 @@ export default function SellerDashboard() {
               <div><label className="block text-xs font-medium text-stone-600 mb-1">Product Name *</label><input value={productForm.name} onChange={(e) => setProductForm((f) => ({ ...f, name: e.target.value }))} className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:border-[#1C3270] bg-stone-50" /></div>
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="block text-xs font-medium text-stone-600 mb-1">Price (RM) *</label><input type="number" value={productForm.price} onChange={(e) => setProductForm((f) => ({ ...f, price: e.target.value }))} className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:border-[#1C3270] bg-stone-50" /></div>
-                <div><label className="block text-xs font-medium text-stone-600 mb-1">Stock Quantity *</label><input type="number" value={productForm.stock} onChange={(e) => setProductForm((f) => ({ ...f, stock: e.target.value }))} className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:border-[#1C3270] bg-stone-50" /></div>
+                <div>
+                  <label className="block text-xs font-medium text-stone-600 mb-1">Stock Status</label>
+                  <select value={productForm.stock === "finished" ? "finished" : "available"} onChange={(e) => setProductForm((f) => ({ ...f, stock: e.target.value === "finished" ? "finished" : "" }))} className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:border-[#1C3270] bg-stone-50">
+                    <option value="available">Available</option>
+                    <option value="finished">Finished / Sold out</option>
+                  </select>
+                </div>
               </div>
+              {productForm.stock !== "finished" && (
+                <div><label className="block text-xs font-medium text-stone-600 mb-1">Stock Quantity <span className="text-stone-400 font-normal">(optional — leave blank for delivery/made-to-order)</span></label><input type="number" min="0" value={productForm.stock === "finished" ? "" : productForm.stock} onChange={(e) => setProductForm((f) => ({ ...f, stock: e.target.value }))} placeholder="e.g. 10, or leave blank" className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:border-[#1C3270] bg-stone-50" /></div>
+              )}
               <div><label className="block text-xs font-medium text-stone-600 mb-1">Category *</label><select value={productForm.category} onChange={(e) => setProductForm((f) => ({ ...f, category: e.target.value }))} className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:border-[#1C3270] bg-stone-50"><option value="">Select...</option>{categories.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}</select></div>
               <div><label className="block text-xs font-medium text-stone-600 mb-1">Description *</label><textarea value={productForm.description} onChange={(e) => setProductForm((f) => ({ ...f, description: e.target.value }))} rows={3} className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:border-[#1C3270] bg-stone-50 resize-none" /></div>
               <div>

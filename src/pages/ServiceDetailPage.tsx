@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
+import { trackView } from "../lib/analytics";
+import FormatDescription from "../components/ui/FormatDescription";
 import { supabase } from "../lib/supabase";
 import { toService, toShop, type ServiceRow, type ShopRow } from "../lib/marketData";
 import { ensureBuyerProfile } from "../lib/profiles";
@@ -207,7 +209,8 @@ export default function ServiceDetailPage() {
   }
 
   const { text: availText, cls: availCls } = availLabel();
-  const canBook = sv.availability !== "fully_booked";
+  const shopIsOpen = shop?.isOpen ?? true;
+  const canBook = sv.availability !== "fully_booked" && shopIsOpen;
 
   async function handleBook(e: React.FormEvent) {
     e.preventDefault();
@@ -347,6 +350,17 @@ export default function ServiceDetailPage() {
           ) : (
             <form onSubmit={handleBook} className="space-y-3">
               <div className="font-semibold text-stone-900 text-sm border-b border-stone-100 pb-2 mb-3" style={{ fontFamily: "Lora, serif" }}>Request a Booking</div>
+
+              {!shopIsOpen && (
+                <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                  <span className="text-lg">🔒</span>
+                  <div>
+                    <p className="text-sm font-semibold text-red-700">This shop is currently closed</p>
+                    <p className="text-xs text-red-500">Bookings are not accepted right now. Check back later or message the seller.</p>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-stone-600 mb-1">Preferred Date *</label>
@@ -372,7 +386,7 @@ export default function ServiceDetailPage() {
               </div>
               {errors.submit && <p className="text-xs text-red-500">{errors.submit}</p>}
               <button type="submit" disabled={!canBook} className="w-full py-3 bg-[#44B444] text-white rounded-xl font-semibold hover:bg-[#2E8A2E] transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-                {canBook ? "Request Booking" : "Fully Booked"}
+                {!shopIsOpen ? "Shop Closed" : canBook ? "Request Booking" : "Fully Booked"}
               </button>
               <p className="text-xs text-stone-400 text-center">Payment is only required after the seller accepts your request.</p>
             </form>
@@ -386,10 +400,10 @@ export default function ServiceDetailPage() {
 
       <div className="bg-white rounded-2xl border border-stone-100 p-6 mb-8">
         <h2 className="text-xl font-bold text-stone-900 mb-3" style={{ fontFamily: "Lora, serif" }}>About this service</h2>
-        <p className="text-stone-600 leading-relaxed mb-4">{sv.description}</p>
-        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+        <FormatDescription text={sv.description || ""} />
+        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mt-4">
           <h4 className="font-semibold text-blue-900 text-sm mb-1">What's included</h4>
-          <p className="text-sm text-blue-800">{sv.what_included}</p>
+          <FormatDescription text={sv.what_included || ""} />
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import FormatDescription from "../components/ui/FormatDescription";
 import { toProduct, toShop, type ProductRow, type ShopRow } from "../lib/marketData";
 import StarRating from "../components/ui/StarRating";
 import Badge from "../components/ui/Badge";
@@ -33,7 +34,7 @@ function toReview(row: any): Review {
 
 export default function ProductDetailPage() {
   const { slug } = useParams<{ slug: string }>();
-  const { user, addToCart, openAuthModal, wishlist, toggleWishlist, trackView } = useApp();
+  const { user, addToCart, removeFromCart, cart, openAuthModal, wishlist, toggleWishlist, trackView } = useApp();
   const [product, setProduct] = useState<any>(null);
   const [shop, setShop] = useState<any>(null);
   const [related, setRelated] = useState<any[]>([]);
@@ -143,7 +144,8 @@ export default function ProductDetailPage() {
 
   const p = product;
   const isWished = wishlist.includes(p.id);
-  const isAvailable = p.stock !== "out_of_stock";
+  const shopIsOpen = shop?.isOpen ?? true;
+  const isAvailable = p.stock !== "out_of_stock" && shopIsOpen;
 
   function buildCartItem() {
     return {
@@ -168,6 +170,10 @@ export default function ProductDetailPage() {
 
   function handleBuyNow() {
     if (!user) { openAuthModal("login"); return; }
+    // Remove any existing cart entry for this product so the quantity
+    // is replaced (not stacked) when the user comes back and buys again.
+    const existing = cart.find((c) => c.productId === p.id);
+    if (existing) removeFromCart(existing.id);
     addToCart(buildCartItem());
     navigate("/cart?buy=1");
   }
@@ -298,17 +304,27 @@ export default function ProductDetailPage() {
             </div>
           )}
 
+          {!shopIsOpen && (
+            <div className="mb-4 flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+              <span className="text-lg">🔒</span>
+              <div>
+                <p className="text-sm font-semibold text-red-700">This shop is currently closed</p>
+                <p className="text-xs text-red-500">Orders are not accepted right now. Check back later or message the seller.</p>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2 mb-4">
             <div className="flex gap-3">
               <button onClick={handleBuyNow} disabled={!isAvailable} className="flex-1 py-3 bg-[#44B444] text-white rounded-xl font-semibold hover:bg-[#2E8A2E] transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-                {isAvailable ? "Buy Now" : "Out of Stock"}
+                {!shopIsOpen ? "Shop Closed" : isAvailable ? "Buy Now" : "Out of Stock"}
               </button>
               <button onClick={() => toggleWishlist(p.id)} className={`w-12 h-12 rounded-xl border-2 flex items-center justify-center text-xs transition-colors flex-shrink-0 ${isWished ? "border-red-300 bg-red-50" : "border-stone-200 hover:border-stone-300"}`} aria-label={isWished ? "Remove from wishlist" : "Add to wishlist"}>
                 {isWished ? "Saved" : "Save"}
               </button>
             </div>
             <button onClick={handleAddToCart} disabled={!isAvailable} className="w-full py-3 border-2 border-[#1C3270] text-[#1C3270] rounded-xl font-semibold hover:bg-[#1C3270] hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-              {addedMsg ? "Added to cart!" : isAvailable ? "Add to Cart" : "Out of Stock"}
+              {addedMsg ? "Added to cart!" : !shopIsOpen ? "Shop Closed" : isAvailable ? "Add to Cart" : "Out of Stock"}
             </button>
           </div>
 
@@ -322,9 +338,9 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-stone-100 p-6 mb-8">
+      <div className="bg-white rounded-2xl border border-stone-100 p-6 mb-8 mt-6">
         <h2 className="text-xl font-bold text-stone-900 mb-3" style={{ fontFamily: "Lora, serif" }}>About this product</h2>
-        <p className="text-stone-600 leading-relaxed">{p.description}</p>
+        <FormatDescription text={p.description || ""} />
       </div>
 
       <div className="bg-white rounded-2xl border border-stone-100 p-6 mb-8">

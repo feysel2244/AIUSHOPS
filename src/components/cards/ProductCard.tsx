@@ -12,6 +12,7 @@ type Product = {
   shopSlug: string;
   shopName: string;
   shopLogo: string;
+  shopIsOpen: boolean;
   name: string;
   price: number;
   images: string[];
@@ -133,7 +134,8 @@ export default function ProductCard({
     toggleWishlist(product.id);
   }
 
-  const isAvailable = product.stock !== "out_of_stock";
+  const isAvailable = product.stock !== "out_of_stock" && product.shopIsOpen;
+  const shopClosed = !product.shopIsOpen;
 
   return (
     <Link
@@ -145,12 +147,20 @@ export default function ProductCard({
         <img
           src={product.images[0]}
           alt={product.name}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${shopClosed ? "opacity-60 grayscale" : ""}`}
         />
 
         {product.promoted && (
           <div className="absolute top-2 left-2">
             <Badge variant="promoted" />
+          </div>
+        )}
+
+        {shopClosed && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+            <span className="bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow">
+              🔒 Shop Closed
+            </span>
           </div>
         )}
       </div>
@@ -205,9 +215,9 @@ export default function ProductCard({
             </span>
 
             <span
-              className={`text-[10px] leading-none truncate min-w-0 ${color}`}
+              className={`text-[10px] leading-none truncate min-w-0 ${shopClosed ? "text-red-500" : color}`}
             >
-              {label}
+              {shopClosed ? "Shop closed" : label}
             </span>
           </div>
 

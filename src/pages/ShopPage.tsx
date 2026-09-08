@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import FormatDescription from "../components/ui/FormatDescription";
 import {
   toProduct,
   toService,
@@ -458,9 +459,10 @@ export default function ShopPage() {
           </div>
 
           <div className="bg-white rounded-xl border border-stone-100 p-4 mb-6">
-            <p className="text-stone-600 text-sm leading-relaxed">
-              {shop.description}
-            </p>
+            <FormatDescription
+              text={shop.description || shop.tagline || ""}
+              className=""
+            />
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">

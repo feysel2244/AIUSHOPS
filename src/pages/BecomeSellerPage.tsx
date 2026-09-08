@@ -105,6 +105,7 @@ export default function BecomeSellerPage() {
         .select("id,status")
         .eq("owner_id", user!.id)
         .in("status", ["pending", "approved"])
+        .is("deleted_at", null)
         .maybeSingle();
 
       if (existingShop) {

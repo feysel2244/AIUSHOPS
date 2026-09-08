@@ -75,8 +75,8 @@ export default function HomePage() {
         supabase.from("shops").select(`
   *,
   profiles(name,department,year,whatsapp),
-  products(id),
-  services(id)
+  products(id,deleted_at),
+  services(id,deleted_at)
 `).eq("status", "approved").is("deleted_at", null).order("rating", { ascending: false }).limit(6),
         supabase.from("products").select("*,shops!inner(*,profiles(name,department,year,whatsapp))").is("shops.deleted_at", null).is("deleted_at", null).order("created_at", { ascending: false }).limit(6),
         supabase.from("services").select("*,shops!inner(*,profiles(name,department,year,whatsapp))").is("shops.deleted_at", null).is("deleted_at", null).order("created_at", { ascending: false }).limit(6),
@@ -107,8 +107,8 @@ export default function HomePage() {
         .select(`
   *,
   profiles(name,department,year,whatsapp),
-  products(id),
-  services(id)
+  products(id,deleted_at),
+  services(id,deleted_at)
 `)
         .in("id", favouriteShops)
         .eq("status", "approved").is("deleted_at", null);

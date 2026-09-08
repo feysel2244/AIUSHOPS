@@ -58,8 +58,8 @@ export default function BrowsePage() {
       let shopQuery = supabase.from("shops").select(`
   *,
   profiles(name,department,year,whatsapp),
-  products(id),
-  services(id)
+  products(id,deleted_at),
+  services(id,deleted_at)
 `).eq("status", "approved").is("deleted_at", null);
 
       if (search) {

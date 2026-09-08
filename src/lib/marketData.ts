@@ -15,8 +15,8 @@ export type ShopRow = {
   review_count?: number | null;
   created_at?: string | null;
 
-  products?: { id: string }[] | null;
-  services?: { id: string }[] | null;
+  products?: { id: string; deleted_at?: string | null }[] | null;
+  services?: { id: string; deleted_at?: string | null }[] | null;
 
   profiles?: {
     name?: string | null;
@@ -95,8 +95,8 @@ export function slugify(value: string) {
 }
 
 export function toShop(row: ShopRow) {
-  const productCount = row.products?.length ?? 0;
-  const serviceCount = row.services?.length ?? 0;
+  const productCount = (row.products ?? []).filter((p) => p.deleted_at == null).length;
+  const serviceCount = (row.services ?? []).filter((s) => s.deleted_at == null).length;
 
   return {
     id: row.id,
@@ -219,6 +219,9 @@ export function toProduct(row: ProductRow) {
         row.review_count ?? 0
       ),
 
+    shopIsOpen:
+      shop?.isOpen ?? true,
+
     type:
       "product" as const,
   };
@@ -294,6 +297,9 @@ export function toService(row: ServiceRow) {
       Number(
         row.review_count ?? 0
       ),
+
+    shopIsOpen:
+      shop?.isOpen ?? true,
 
     type:
       "service" as const,

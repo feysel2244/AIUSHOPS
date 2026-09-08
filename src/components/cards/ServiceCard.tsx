@@ -9,6 +9,7 @@ type Service = {
   shopSlug: string;
   shopName: string;
   shopLogo: string;
+  shopIsOpen: boolean;
   name: string;
   price: number;
   priceType: string;
@@ -68,8 +69,10 @@ export default function ServiceCard({
     service.availability
   );
 
+  const shopClosed = !service.shopIsOpen;
+
   const isAvailable =
-    service.availability !== "fully_booked";
+    service.availability !== "fully_booked" && service.shopIsOpen;
 
   const isWished = wishlist.includes(service.id);
 
@@ -102,7 +105,7 @@ export default function ServiceCard({
         <img
           src={service.image}
           alt={service.name}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${shopClosed ? "opacity-60 grayscale" : ""}`}
         />
 
         <div className="absolute top-2 left-2">
@@ -115,6 +118,14 @@ export default function ServiceCard({
         {service.promoted && (
           <div className="absolute top-2 right-2">
             <Badge variant="promoted" />
+          </div>
+        )}
+
+        {shopClosed && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+            <span className="bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow">
+              🔒 Shop Closed
+            </span>
           </div>
         )}
       </div>
@@ -180,9 +191,9 @@ export default function ServiceCard({
             </div>
 
             <span
-              className={`text-[10px] leading-none flex-shrink-0 truncate max-w-[45%] ${color}`}
+              className={`text-[10px] leading-none flex-shrink-0 truncate max-w-[45%] ${shopClosed ? "text-red-500" : color}`}
             >
-              {label}
+              {shopClosed ? "Shop closed" : label}
             </span>
           </div>
 
@@ -209,9 +220,7 @@ export default function ServiceCard({
               disabled={!isAvailable}
               className="flex-1 min-w-0 py-1.5 rounded-lg text-xs font-semibold transition-all bg-[#44B444] text-white hover:bg-[#2E8A2E] disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {isAvailable
-                ? "Book"
-                : "Fully Booked"}
+              {shopClosed ? "Shop Closed" : isAvailable ? "Book" : "Fully Booked"}
             </button>
           </div>
         </div>
