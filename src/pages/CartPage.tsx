@@ -148,7 +148,7 @@ function QRPaymentScreen({
             <p className="font-semibold text-sm text-amber-900 mb-1">Payment proof required</p>
             <p className="text-xs text-amber-800 mb-3">Upload a screenshot of your successful bank/TnG/DuitNow payment before you can confirm “I've Paid”.</p>
             <label className="block border-2 border-dashed border-amber-300 rounded-lg p-4 text-center cursor-pointer hover:bg-amber-100/50">
-              {proofPreview ? <img src={proofPreview} alt="Payment proof preview" className="max-h-40 mx-auto rounded-lg object-contain" /> : <span className="text-xs text-amber-800">📸 Choose payment proof image</span>}
+              {proofPreview ? <img src={proofPreview} alt="Payment proof preview" className="max-h-40 w-full mx-auto rounded-lg object-contain" /> : <span className="text-xs text-amber-800">📸 Choose payment proof image</span>}
               <input type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; const err = validateImageFile(file); if (err) { setProofError(err); return; } setProofError(""); setProofFile(file); setProofPreview(URL.createObjectURL(file)); e.target.value = ""; }} />
             </label>
             {proofError && <p className="text-xs text-red-500 mt-1">{proofError}</p>}

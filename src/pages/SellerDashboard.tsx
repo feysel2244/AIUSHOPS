@@ -1371,8 +1371,8 @@ export default function SellerDashboard() {
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setPaymentProofOrder(null)}
           />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100">
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100 shrink-0">
               <div>
                 <h3 className="font-bold text-stone-900" style={{ fontFamily: "Lora, serif" }}>Payment Proof</h3>
                 <p className="text-xs text-stone-400 mt-0.5">
@@ -1387,16 +1387,16 @@ export default function SellerDashboard() {
                 ×
               </button>
             </div>
-            <div className="p-5 bg-stone-50">
-              <div className="rounded-xl border border-stone-200 bg-white p-3 max-h-[65vh] overflow-auto">
+            <div className="p-5 bg-stone-50 overflow-y-auto">
+              <div className="rounded-xl border border-stone-200 bg-white p-3">
                 <img
                   src={paymentProofOrder.payment_proof_url}
                   alt={`Payment proof from ${paymentProofOrder.buyer}`}
-                  className="block max-w-full max-h-[60vh] mx-auto object-contain rounded-lg"
+                  className="block w-full max-h-[60vh] mx-auto object-contain rounded-lg"
                 />
               </div>
             </div>
-            <div className="px-5 py-4 border-t border-stone-100 flex flex-wrap gap-2 justify-end">
+            <div className="px-5 py-4 border-t border-stone-100 flex flex-wrap gap-2 justify-end shrink-0">
               <a
                 href={paymentProofOrder.payment_proof_url}
                 target="_blank"

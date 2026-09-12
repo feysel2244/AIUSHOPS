@@ -114,14 +114,14 @@ function QRPayModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-        <div className="bg-[#1C3270] px-6 py-4 text-white text-center">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm flex flex-col max-h-[90vh] overflow-hidden">
+        <div className="bg-[#1C3270] px-6 py-4 text-white text-center shrink-0">
           <div className="text-3xl font-bold mb-0.5">RM {Number(order.total).toFixed(2)}</div>
           <div className="text-sm opacity-80">Pay {order.shops?.name}</div>
           <div className="text-xs opacity-60 font-mono mt-0.5">{order.order_code}</div>
         </div>
 
-        <div className="p-5 space-y-4">
+        <div className="p-5 space-y-4 overflow-y-auto">
           {!hasPayment && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
               ⚠️ This shop hasn't set up a payment method yet. Contact the seller via WhatsApp to arrange payment.
@@ -154,7 +154,7 @@ function QRPayModal({
                 <p className="text-xs text-blue-700 mb-3">After paying, upload the successful TnG or banking-app screenshot so the seller can verify your payment.</p>
                 <label className="block border-2 border-dashed border-blue-200 rounded-xl p-3 text-center cursor-pointer hover:border-[#1C3270] bg-white">
                   {receiptPreview ? (
-                    <img src={receiptPreview} alt="Payment receipt preview" className="max-h-36 mx-auto rounded-lg object-contain" />
+                    <img src={receiptPreview} alt="Payment receipt preview" className="max-h-36 w-full mx-auto rounded-lg object-contain" />
                   ) : (
                     <div className="text-sm text-stone-400">📷 Click to upload payment screenshot</div>
                   )}
@@ -178,7 +178,7 @@ function QRPayModal({
 
           {err && <div className="text-xs text-red-500 text-center">{err}</div>}
 
-          <div className="flex gap-3">
+          <div className="flex gap-3 pt-2">
             <button onClick={onClose} className="flex-1 py-2.5 border border-stone-200 rounded-xl text-sm font-medium">
               Cancel
             </button>

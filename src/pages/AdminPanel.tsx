@@ -111,10 +111,10 @@ export default function AdminPanel() {
     setMigDone(0);
     setMigTotal(0);
 
-    // Helper: download a URL and re-upload to Cloudinary
+    // Helper: download a URL and re-upload to Cloudinary.
     async function reupload(url: string): Promise<string> {
       const resp = await fetch(url);
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status} – could not download image`);
       const blob = await resp.blob();
       const mimeType = blob.type || "image/jpeg";
       const ext = mimeType.split("/")[1] ?? "jpg";
@@ -127,7 +127,9 @@ export default function AdminPanel() {
     }
 
     function needsMigration(url: string) {
-      return url && !url.includes("res.cloudinary.com") && !url.includes("unsplash.com");
+      // Explicitly flag Supabase storage URLs so they are always migrated,
+      // and exclude known CDNs (Cloudinary, Unsplash) that don't need migration.
+      return url && (url.includes(".supabase.co/storage/") || (!url.includes("res.cloudinary.com") && !url.includes("unsplash.com")));
     }
 
     try {
@@ -218,17 +220,27 @@ export default function AdminPanel() {
           failed = true;
         }
 
-        const { error: updateErr } = !failed
-          ? await supabase.from("services").update({ image: newUrl }).eq("id", service.id)
-          : { error: null };
+        let updateErr: { message: string } | null = null;
+        let rlsBlocked = false;
+        if (!failed) {
+          const { error: err, count } = await supabase
+            .from("services")
+            .update({ image: newUrl }, { count: "exact" })
+            .eq("id", service.id);
+          updateErr = err;
+          // RLS silently blocks updates — no error but 0 rows changed
+          if (!err && count === 0) rlsBlocked = true;
+        }
 
         setMigLogs((prev) => [
           ...prev,
           {
             productId: service.id,
             name: `🔧 ${service.name}`,
-            status: failed || updateErr ? "fail" : "ok",
-            detail: updateErr
+            status: failed || updateErr || rlsBlocked ? "fail" : "ok",
+            detail: rlsBlocked
+              ? "⛔ RLS blocked update — add admin UPDATE policy in Supabase Dashboard"
+              : updateErr
               ? updateErr.message
               : failed
               ? "Image failed — original kept"
@@ -1289,7 +1301,7 @@ export default function AdminPanel() {
                 {(migStatus === "running" || migStatus === "done") && migTotal > 0 && (
                   <div className="mb-4">
                     <div className="flex justify-between text-xs text-stone-500 mb-1">
-                      <span>{migDone} / {migTotal} products processed</span>
+                      <span>{migDone} / {migTotal} items processed</span>
                       <span>{Math.round((migDone / migTotal) * 100)}%</span>
                     </div>
                     <div className="w-full h-2 bg-stone-100 rounded-full overflow-hidden">
