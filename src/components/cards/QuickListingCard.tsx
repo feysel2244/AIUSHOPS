@@ -1,4 +1,5 @@
-﻿import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useApp } from "../../context/AppContext";
 import { cloudinaryOptimize } from "../../lib/cloudinary";
 import LazyImage from "../ui/LazyImage";
@@ -19,6 +20,15 @@ export default function QuickListingCard({
 }) {
   const { user, addToCart, openAuthModal } = useApp();
   const navigate = useNavigate();
+  const [imgIdx, setImgIdx] = useState(0);
+
+  useEffect(() => {
+    if (listing.images.length <= 1) return;
+    const interval = setInterval(() => {
+      setImgIdx(p => (p < listing.images.length - 1 ? p + 1 : 0));
+    }, 1500);
+    return () => clearInterval(interval);
+  }, [listing.images.length]);
 
   function handleAddToCart(e: React.MouseEvent) {
     e.preventDefault();
@@ -70,14 +80,37 @@ export default function QuickListingCard({
          style={{ borderTop: "3px solid #00B4C6" }}>
 
       {/* Image */}
-      <div className="relative aspect-[4/3] bg-stone-100 overflow-hidden flex-shrink-0">
+      <div className="relative aspect-[4/3] bg-stone-100 overflow-hidden flex-shrink-0 group/img">
         <LazyImage
-          src={cloudinaryOptimize(listing.images[0], 400)}
+          src={cloudinaryOptimize(listing.images[imgIdx] ?? listing.images[0], 400)}
           alt={listing.title}
           loading="lazy"
           decoding="async"
-          className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${isSold || isExpired ? "opacity-50 grayscale" : ""}`}
+          className={`w-full h-full object-cover transition-transform duration-300 ${isSold || isExpired ? "opacity-50 grayscale" : "group-hover/img:scale-105"}`}
         />
+        
+        {/* Slider Controls */}
+        {listing.images.length > 1 && (
+          <>
+            <button 
+              onClick={(e) => { e.preventDefault(); setImgIdx(p => p > 0 ? p - 1 : listing.images.length - 1); }}
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 bg-white/80 rounded-full flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-white shadow"
+            >
+              <svg className="w-4 h-4 text-stone-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+            </button>
+            <button 
+              onClick={(e) => { e.preventDefault(); setImgIdx(p => p < listing.images.length - 1 ? p + 1 : 0); }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 bg-white/80 rounded-full flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-white shadow"
+            >
+              <svg className="w-4 h-4 text-stone-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+            </button>
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+              {listing.images.map((_, i) => (
+                <div key={i} className={`w-1.5 h-1.5 rounded-full transition-colors ${i === imgIdx ? "bg-white" : "bg-white/50"}`} />
+              ))}
+            </div>
+          </>
+        )}
         <div className="absolute top-2 left-2">
           <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-[#00B4C6] text-white px-2 py-0.5 rounded-full shadow">
             Student Listing

@@ -125,23 +125,37 @@ export default function QuickSellPage() {
   function handleImages(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     setImageError("");
-    const valid: File[]   = [];
+    
+    let currentCount = imageFiles.length;
+    const valid: File[] = [];
     const previews: string[] = [];
+    
     for (const f of files) {
+      if (currentCount >= 3) break;
       const err = validateImageFile(f);
       if (err) { setImageError(err); continue; }
       valid.push(f);
       previews.push(URL.createObjectURL(f));
-      if (valid.length === 3) break; // max 3 images
+      currentCount++;
     }
-    setImageFiles(valid);
-    setImagePreviews(previews);
+    
+    setImageFiles(prev => [...prev, ...valid].slice(0, 3));
+    setImagePreviews(prev => [...prev, ...previews].slice(0, 3));
     e.target.value = "";
   }
 
   function removeImage(idx: number) {
     setImageFiles(prev => prev.filter((_, i) => i !== idx));
     setImagePreviews(prev => prev.filter((_, i) => i !== idx));
+  }
+
+  async function handleMarkSold(id: string) {
+    try {
+      await markListingAsSold(id);
+      setSubmitted(p => !p); // trigger reload
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Could not mark as sold");
+    }
   }
 
   // ── submit ──────────────────────────────────────────────────────────────────
@@ -580,7 +594,7 @@ export default function QuickSellPage() {
                   <div className="flex flex-col gap-1 flex-shrink-0">
                     {l.status === "active" && (
                       <button
-                        onClick={() => void markListingAsSold(l.id).then(() => setSubmitted(p => !p))}
+                        onClick={(e) => { e.preventDefault(); void handleMarkSold(l.id); }}
                         className="text-xs px-2 py-1 rounded-lg border border-[#44B444] text-[#44B444] hover:bg-[#44B444] hover:text-white transition-all"
                       >
                         Sold

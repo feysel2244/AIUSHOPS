@@ -50,8 +50,8 @@ export async function getShopSalesSummary(shopId: string, startDate: Date, endDa
     .from("orders")
     .select("total", { count: "exact" })
     .eq("shop_id", shopId)
-    .eq("payment_status", "paid")
-    .eq("status", "completed")
+    .neq("status", "cancelled")
+    .neq("status", "rejected")
     .gte("created_at", startDate.toISOString())
     .lt("created_at", endDate.toISOString());
 
@@ -71,8 +71,8 @@ async function getSalesSummariesByShop(shopIds: string[], startDate: Date, endDa
     .from("orders")
     .select("shop_id,total")
     .in("shop_id", shopIds)
-    .eq("payment_status", "paid")
-    .eq("status", "completed")
+    .neq("status", "cancelled")
+    .neq("status", "rejected")
     .gte("created_at", startDate.toISOString())
     .lt("created_at", endDate.toISOString());
 

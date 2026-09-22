@@ -73,7 +73,7 @@ export default function Navbar() {
 
   return (
     <nav className="bg-white dark:bg-[#0D1E36] border-b border-stone-200 dark:border-[#1C3058] sticky top-0 z-40 shadow-sm dark:shadow-[0_1px_0_#1C3058]">
-      <div className="max-w-7xl mx-auto px-4 h-16 flex items-center gap-4">
+      <div className="max-w-7xl mx-auto px-4 h-16 flex items-center gap-1.5 md:gap-4">
 
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 flex-shrink-0">
@@ -195,7 +195,7 @@ export default function Navbar() {
 
           <Link
             to="/quick-sell"
-            className="hidden md:flex items-center gap-1 text-sm font-semibold text-white px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors hover:opacity-90"
+            className="flex items-center gap-1 text-xs md:text-sm font-semibold text-white px-2.5 md:px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors hover:opacity-90"
             style={{ background: "#44B444" }}
           >
             🏷️ Quick Sell

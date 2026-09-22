@@ -171,9 +171,10 @@ export async function createQuickListing(
   // Upload images through Cloudinary via the existing edge function
   const uploaded: string[] = [];
   for (const file of fields.imageFiles) {
+    const randomSuffix = Math.random().toString(36).substring(7);
     const url = await uploadImage(
       "quick-listing-images",
-      `${sellerId}/${Date.now()}-${file.name}`,
+      `${sellerId}/${Date.now()}-${randomSuffix}-${file.name.replace(/[^a-zA-Z0-9.-]/g, "")}`,
       file
     );
     uploaded.push(url);
