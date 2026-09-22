@@ -147,11 +147,16 @@ export default function AdminPanel() {
         .not("image", "is", null);
       if (svcErr) throw new Error(svcErr.message);
 
-      // ── 3. Fetch shops (logos & banners) ───────────────────────────────────
+      // ── 3. Fetch shops (logos & banners & QR) ─────────────────────────────
       const { data: shops, error: shopErr } = await supabase
         .from("shops")
-        .select("id, name, logo_url, banner_url");
+        .select("id, name, logo_url, banner_url, payment_qr_url");
       if (shopErr) throw new Error(shopErr.message);
+
+      // ── 4. Fetch platform settings (QR) ───────────────────────────────────
+      const { data: pSettings } = await supabase
+        .from("platform_settings")
+        .select("id, payment_qr_url");
 
       // Filter to only rows that need migration
       const productsToMigrate = (products ?? []).filter((p: any) =>
@@ -161,10 +166,13 @@ export default function AdminPanel() {
         needsMigration(s.image ?? "")
       );
       const shopsToMigrate = (shops ?? []).filter((s: any) =>
-        needsMigration(s.logo_url ?? "") || needsMigration(s.banner_url ?? "")
+        needsMigration(s.logo_url ?? "") || needsMigration(s.banner_url ?? "") || needsMigration(s.payment_qr_url ?? "")
+      );
+      const settingsToMigrate = (pSettings ?? []).filter((s: any) =>
+        needsMigration(s.payment_qr_url ?? "")
       );
 
-      const total = productsToMigrate.length + servicesToMigrate.length + shopsToMigrate.length;
+      const total = productsToMigrate.length + servicesToMigrate.length + shopsToMigrate.length + settingsToMigrate.length;
       setMigTotal(total);
 
       if (total === 0) {
@@ -177,14 +185,16 @@ export default function AdminPanel() {
         const oldImages: string[] = product.images ?? [];
         const newImages: string[] = [];
         let anyFailed = false;
+        let errMsgs: string[] = [];
 
         for (const url of oldImages) {
           if (!needsMigration(url)) { newImages.push(url); continue; }
           try {
             newImages.push(await reupload(url));
-          } catch {
+          } catch (e: any) {
             newImages.push(url); // keep original on failure
             anyFailed = true;
+            errMsgs.push(e.message);
           }
         }
 
@@ -202,7 +212,7 @@ export default function AdminPanel() {
             detail: updateErr
               ? updateErr.message
               : anyFailed
-              ? "Some images failed — originals kept"
+              ? `Partial fail: ${errMsgs.join(", ")}`
               : `Migrated ${newImages.length} image(s)`,
           },
         ]);
@@ -213,11 +223,13 @@ export default function AdminPanel() {
       for (const service of servicesToMigrate) {
         let newUrl = service.image;
         let failed = false;
+        let errMsg = "";
 
         try {
           newUrl = await reupload(service.image);
-        } catch {
+        } catch (e: any) {
           failed = true;
+          errMsg = e.message;
         }
 
         let updateErr: { message: string } | null = null;
@@ -243,7 +255,7 @@ export default function AdminPanel() {
               : updateErr
               ? updateErr.message
               : failed
-              ? "Image failed — original kept"
+              ? `Fail: ${errMsg}`
               : "Migrated 1 image",
           },
         ]);
@@ -255,35 +267,46 @@ export default function AdminPanel() {
         let newLogo = shop.logo_url;
         let newBanner = shop.banner_url;
         let newQr = shop.payment_qr_url;
-        let failed = false;
+        let failedCount = 0;
+        let errMsgs: string[] = [];
 
         if (needsMigration(shop.logo_url ?? "")) {
-          try { newLogo = await reupload(shop.logo_url); } catch { failed = true; }
+          try { newLogo = await reupload(shop.logo_url); } catch (e: any) { failedCount++; errMsgs.push(`Logo: ${e.message}`); }
         }
         if (needsMigration(shop.banner_url ?? "")) {
-          try { newBanner = await reupload(shop.banner_url); } catch { failed = true; }
+          try { newBanner = await reupload(shop.banner_url); } catch (e: any) { failedCount++; errMsgs.push(`Banner: ${e.message}`); }
         }
         if (needsMigration(shop.payment_qr_url ?? "")) {
-          try { newQr = await reupload(shop.payment_qr_url); } catch { failed = true; }
+          try { newQr = await reupload(shop.payment_qr_url); } catch (e: any) { failedCount++; errMsgs.push(`QR: ${e.message}`); }
         }
 
-        const { error: updateErr } = !failed
-          ? await supabase.from("shops").update({ logo_url: newLogo, banner_url: newBanner, payment_qr_url: newQr }).eq("id", shop.id)
-          : { error: null };
+        const { error: updateErr } = await supabase.from("shops").update({ logo_url: newLogo, banner_url: newBanner, payment_qr_url: newQr }).eq("id", shop.id);
 
         setMigLogs((prev) => [
           ...prev,
           {
             productId: shop.id,
             name: `🏪 ${shop.name}`,
-            status: failed || updateErr ? "fail" : "ok",
+            status: updateErr || failedCount > 0 ? "fail" : "ok",
             detail: updateErr
               ? updateErr.message
-              : failed
-              ? "Shop image failed — original kept"
+              : failedCount > 0
+              ? `Partial fail: ${errMsgs.join(", ")}`
               : "Migrated shop images",
           },
         ]);
+        setMigDone((d) => d + 1);
+      }
+
+      // ── Migrate platform settings ──────────────────────────────────────────
+      for (const setting of settingsToMigrate) {
+        try {
+          const newQr = await reupload(setting.payment_qr_url);
+          await supabase.from("platform_settings").update({ payment_qr_url: newQr }).eq("id", setting.id);
+          setMigLogs((prev) => [...prev, { productId: setting.id, name: `⚙️ Platform Settings`, status: "ok", detail: "Migrated platform QR" }]);
+        } catch {
+          setMigLogs((prev) => [...prev, { productId: setting.id, name: `⚙️ Platform Settings`, status: "fail", detail: "Platform QR failed" }]);
+        }
         setMigDone((d) => d + 1);
       }
 
@@ -297,8 +320,8 @@ export default function AdminPanel() {
           const newAvatar = await reupload(profile.avatar_url);
           await supabase.from("profiles").update({ avatar_url: newAvatar }).eq("id", profile.id);
           setMigLogs((prev) => [...prev, { productId: profile.id, name: `👤 ${profile.name}`, status: "ok", detail: "Migrated avatar" }]);
-        } catch {
-          setMigLogs((prev) => [...prev, { productId: profile.id, name: `👤 ${profile.name}`, status: "fail", detail: "Avatar failed" }]);
+        } catch (e: any) {
+          setMigLogs((prev) => [...prev, { productId: profile.id, name: `👤 ${profile.name}`, status: "fail", detail: `Avatar failed: ${e.message}` }]);
         }
         setMigDone((d) => d + 1);
       }
@@ -313,8 +336,8 @@ export default function AdminPanel() {
           const newProof = await reupload(order.payment_proof_url);
           await supabase.from("orders").update({ payment_proof_url: newProof }).eq("id", order.id);
           setMigLogs((prev) => [...prev, { productId: order.id, name: `🧾 Order ${order.order_code}`, status: "ok", detail: "Migrated proof" }]);
-        } catch {
-          setMigLogs((prev) => [...prev, { productId: order.id, name: `🧾 Order ${order.order_code}`, status: "fail", detail: "Proof failed" }]);
+        } catch (e: any) {
+          setMigLogs((prev) => [...prev, { productId: order.id, name: `🧾 Order ${order.order_code}`, status: "fail", detail: `Proof failed: ${e.message}` }]);
         }
         setMigDone((d) => d + 1);
       }

@@ -193,6 +193,14 @@ export default function Navbar() {
             Browse
           </Link>
 
+          <Link
+            to="/quick-sell"
+            className="hidden md:flex items-center gap-1 text-sm font-semibold text-white px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors hover:opacity-90"
+            style={{ background: "#44B444" }}
+          >
+            🏷️ Quick Sell
+          </Link>
+
           {/* Cart — hidden on mobile (bottom nav handles it) */}
           <Link
             to="/cart"

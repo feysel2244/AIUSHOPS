@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
 import StarRating from "../ui/StarRating";
 import Badge from "../ui/Badge";
+import { cloudinaryOptimize } from "../../lib/cloudinary";
+import LazyImage from "../ui/LazyImage";
 
 type Shop = {
   id: string;
@@ -26,9 +28,11 @@ className="group block w-full min-w-0 bg-white dark:bg-[#112038] rounded-xl bord
       <div className="p-3 flex flex-col gap-2">
         <div className="flex items-start gap-2">
           <div className="relative flex-shrink-0">
-            <img
-              src={shop.logo}
+            <LazyImage
+              src={cloudinaryOptimize(shop.logo, 96)}
               alt={`${shop.name} logo`}
+              loading="lazy"
+              decoding="async"
               className="w-12 h-12 rounded-xl object-cover bg-stone-100"
             />
             {shop.rank && shop.rank <= 3 && (

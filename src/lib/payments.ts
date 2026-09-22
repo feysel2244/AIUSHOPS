@@ -73,6 +73,28 @@ export async function fetchMultiShopPaymentInfo(
   return map;
 }
 
+/**
+ * Fetch payment info for a Quick Sell seller from their profile.
+ * Used when the cart group is a quick sale (no shop_id).
+ */
+export async function fetchQuickSellerPaymentInfo(
+  sellerId: string
+): Promise<ShopPaymentInfo | null> {
+  const { data } = await supabase
+    .from("profiles")
+    .select("name,payment_qr_url,bank_name,account_name,account_number")
+    .eq("id", sellerId)
+    .maybeSingle();
+  if (!data) return null;
+  return {
+    name:           data.name           ?? "Student Seller",
+    payment_qr_url: data.payment_qr_url ?? null,
+    bank_name:      data.bank_name      ?? null,
+    account_name:   data.account_name   ?? null,
+    account_number: data.account_number ?? null,
+  };
+}
+
 // ─── Confirmation ─────────────────────────────────────────────────────────────
 
 /**
@@ -127,20 +149,24 @@ export async function confirmPaymentBySeller(orderId: string): Promise<void> {
 
 /** Insert a notification for the shop owner (seller) when a buyer submits payment proof ("I've Paid"). */
 export async function notifySellerNewOrder(
-  shopId: string,
+  shopOrSellerId: string,
   buyerName: string,
   amount: number
 ): Promise<void> {
-  // Look up the shop's owner_id first
+  // Look up the shop's owner_id first (for regular shops)
   const { data: shopRow } = await supabase
     .from("shops")
     .select("owner_id")
-    .eq("id", shopId)
+    .eq("id", shopOrSellerId)
     .maybeSingle();
-  if (!shopRow?.owner_id) return;
+  
+  // If no shop is found, this is a Quick Sell item where shopOrSellerId is the user ID
+  const targetUserId = shopRow?.owner_id || shopOrSellerId;
+
+  if (!targetUserId) return;
 
   const { error } = await supabase.from("notifications").insert({
-    user_id: shopRow.owner_id,
+    user_id: targetUserId,
     icon: "💳",
     title: "Payment proof submitted",
     body: `${buyerName} submitted payment proof for RM${amount.toFixed(2)}. Please verify you received it in your account before preparing the order.`,

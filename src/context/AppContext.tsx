@@ -31,6 +31,8 @@ export type CartItem = {
   quantity: number;
   note?: string;
   pickupLocation: string;
+  /** Set when this item comes from a Quick Sell listing (not a shop product) */
+  quickListingId?: string;
 };
 
 export type Notification = {

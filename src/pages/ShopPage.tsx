@@ -16,6 +16,8 @@ import StarRating from "../components/ui/StarRating";
 import Badge from "../components/ui/Badge";
 import { useApp } from "../context/AppContext";
 import { Helmet } from "react-helmet-async";
+import { cloudinaryOptimize } from "../lib/cloudinary";
+import LazyImage from "../components/ui/LazyImage";
 
 type Review = {
   id: string;
@@ -383,9 +385,11 @@ export default function ShopPage() {
 
       <div>
         <div className="relative h-48 md:h-64 bg-stone-200 overflow-hidden">
-          <img
-            src={shop.banner}
+          <LazyImage
+            src={cloudinaryOptimize(shop.banner, 1400)}
             alt={`${shop.name} banner`}
+            loading="eager"
+            decoding="async"
             className="w-full h-full object-cover"
           />
 
@@ -395,9 +399,11 @@ export default function ShopPage() {
         <div className="max-w-7xl mx-auto px-4">
           <div className="relative -mt-10 mb-6">
             <div className="flex items-start justify-between gap-3">
-              <img
-                src={shop.logo}
+              <LazyImage
+                src={cloudinaryOptimize(shop.logo, 160)}
                 alt={`${shop.name} logo`}
+                loading="lazy"
+                decoding="async"
                 className="w-20 h-20 rounded-xl border-4 border-white shadow-md object-cover bg-white flex-shrink-0"
               />
 
@@ -629,9 +635,11 @@ export default function ShopPage() {
                     key={r.id}
                     className="flex gap-3 p-4 bg-stone-50 rounded-xl"
                   >
-                    <img
-                      src={r.avatar}
+                    <LazyImage
+                      src={cloudinaryOptimize(r.avatar, 72)}
                       alt={r.author}
+                      loading="lazy"
+                      decoding="async"
                       className="w-9 h-9 rounded-full object-cover bg-stone-200 flex-shrink-0"
                     />
 

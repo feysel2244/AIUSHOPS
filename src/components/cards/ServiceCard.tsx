@@ -2,6 +2,8 @@ import { Link, useNavigate } from "react-router-dom";
 import StarRating from "../ui/StarRating";
 import Badge from "../ui/Badge";
 import { useApp } from "../../context/AppContext";
+import { cloudinaryOptimize } from "../../lib/cloudinary";
+import LazyImage from "../ui/LazyImage";
 
 type Service = {
   id: string;
@@ -102,9 +104,11 @@ export default function ServiceCard({
     >
       {/* Image */}
       <div className="relative aspect-[4/3] bg-stone-100 overflow-hidden flex-shrink-0">
-        <img
-          src={service.image}
+        <LazyImage
+          src={cloudinaryOptimize(service.image, 400)}
           alt={service.name}
+          loading="lazy"
+          decoding="async"
           className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${shopClosed ? "opacity-60 grayscale" : ""}`}
         />
 
@@ -140,8 +144,10 @@ export default function ServiceCard({
         {/* Shop */}
         <div className="flex items-center gap-2 mb-2 min-w-0">
           <img
-            src={service.shopLogo}
+            src={cloudinaryOptimize(service.shopLogo, 64)}
             alt={service.shopName}
+            loading="lazy"
+            decoding="async"
             className="w-4 h-4 rounded object-cover bg-stone-100 flex-shrink-0"
           />
 

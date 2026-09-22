@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useCategories } from "../hooks/useCategories";
 import Badge from "../components/ui/Badge";
 import StarRating from "../components/ui/StarRating";
+import { cloudinaryOptimize } from "../lib/cloudinary";
 import { useApp } from "../context/AppContext";
 import { supabase } from "../lib/supabase";
 import { slugify } from "../lib/marketData";
@@ -817,7 +818,7 @@ export default function SellerDashboard() {
                     {/* Thumbnail */}
                     <div className="w-11 h-11 bg-stone-100 rounded-lg overflow-hidden flex-shrink-0 mt-0.5">
                       {(item.images?.[0] || item.image)
-                        ? <img src={item.images?.[0] ?? item.image} alt={item.name} className="w-full h-full object-cover" />
+                        ? <img src={cloudinaryOptimize(item.images?.[0] ?? item.image, 96)} alt={item.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                         : <div className="w-full h-full flex items-center justify-center text-stone-400 text-xs">📦</div>}
                     </div>
                     {/* Info + actions */}
@@ -1106,7 +1107,7 @@ export default function SellerDashboard() {
               {reviews.length === 0 ? <div className="bg-white rounded-2xl border border-stone-100 p-8 text-center text-sm text-stone-500">No reviews yet.</div> : reviews.map((review) => (
                 <div key={review.id} className="bg-white rounded-2xl border border-stone-100 p-5">
                   <div className="flex items-start gap-3">
-                    <img src={review.avatar} alt={review.author} className="w-9 h-9 rounded-full object-cover" />
+                    <img src={cloudinaryOptimize(review.avatar, 72)} alt={review.author} loading="lazy" decoding="async" className="w-9 h-9 rounded-full object-cover" />
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1"><span className="font-semibold text-sm text-stone-900">{review.author}</span><StarRating rating={review.rating} size="sm" /><span className="text-xs text-stone-400">{review.date}</span></div>
                       <p className="text-sm text-stone-600">{review.text}</p>
@@ -1290,7 +1291,7 @@ export default function SellerDashboard() {
                 <div className="flex items-start gap-4">
                   <div className="relative w-24 h-24 rounded-xl bg-stone-100 overflow-hidden flex items-center justify-center flex-shrink-0 border border-stone-200">
                     {(qrPreview || shop.payment_qr_url)
-                      ? <img src={qrPreview || shop.payment_qr_url} alt="Payment QR" className="w-full h-full object-contain" />
+                      ? <img src={qrPreview || cloudinaryOptimize(shop.payment_qr_url, 400)} alt="Payment QR" loading="lazy" decoding="async" className="w-full h-full object-contain" />
                       : <span className="text-2xl">📱</span>}
                     {qrUploading && (
                       <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
@@ -1327,7 +1328,7 @@ export default function SellerDashboard() {
                     <label className="block text-sm font-medium text-stone-700 mb-2">Shop Logo</label>
                     <div className="flex items-center gap-4">
                       <div className="relative w-16 h-16 rounded-xl bg-stone-100 overflow-hidden flex items-center justify-center flex-shrink-0">
-                        {(logoPreview || shop.logo_url) ? <img src={logoPreview || shop.logo_url} alt="Logo" className="w-full h-full object-cover" /> : <span className="text-2xl">🏪</span>}
+                        {(logoPreview || shop.logo_url) ? <img src={logoPreview || cloudinaryOptimize(shop.logo_url, 128)} alt="Logo" loading="lazy" decoding="async" className="w-full h-full object-cover" /> : <span className="text-2xl">🏪</span>}
                         {logoUploading && <div className="absolute inset-0 bg-black/40 flex items-center justify-center"><svg className="animate-spin w-5 h-5 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg></div>}
                       </div>
                       <div>
@@ -1342,7 +1343,7 @@ export default function SellerDashboard() {
                     <label className="block text-sm font-medium text-stone-700 mb-2">Shop Banner</label>
                     <div className="flex flex-col gap-2">
                       <div className="relative w-full h-24 rounded-xl bg-stone-100 overflow-hidden flex items-center justify-center">
-                        {(bannerPreview || shop.banner_url) ? <img src={bannerPreview || shop.banner_url} alt="Banner" className="w-full h-full object-cover" /> : <span className="text-stone-400 text-sm">No banner set</span>}
+                        {(bannerPreview || shop.banner_url) ? <img src={bannerPreview || cloudinaryOptimize(shop.banner_url, 1200)} alt="Banner" loading="lazy" decoding="async" className="w-full h-full object-cover" /> : <span className="text-stone-400 text-sm">No banner set</span>}
                         {bannerUploading && <div className="absolute inset-0 bg-black/40 flex items-center justify-center"><svg className="animate-spin w-5 h-5 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg></div>}
                       </div>
                       <label className="inline-flex items-center gap-2 px-3 py-2 border border-stone-200 rounded-lg cursor-pointer hover:bg-stone-50 transition-colors text-sm text-stone-600 self-start">
@@ -1535,7 +1536,7 @@ export default function SellerDashboard() {
                   <div className="text-center mb-4">
                     <p className="text-xs text-stone-500 mb-2">Scan with TnG or banking app</p>
                     <div className="inline-block border-4 border-[#1C3270]/20 rounded-xl p-1.5">
-                      <img src={platformInfo.payment_qr_url} alt="Platform QR" className="w-40 h-40 object-contain rounded-lg mx-auto" />
+                      <img src={cloudinaryOptimize(platformInfo.payment_qr_url, 400)} alt="Platform QR" loading="lazy" decoding="async" className="w-40 h-40 object-contain rounded-lg mx-auto" />
                     </div>
                   </div>
                 ) : !platformInfo ? (
@@ -1633,7 +1634,7 @@ export default function SellerDashboard() {
               <div className="text-center mb-4">
                 <p className="text-xs text-stone-500 mb-2">Scan with TnG or banking app</p>
                 <div className="inline-block border-4 border-[#1C3270]/20 rounded-xl p-1.5">
-                  <img src={platformInfo.payment_qr_url} alt="Platform QR" className="w-40 h-40 object-contain rounded-lg mx-auto" />
+                  <img src={cloudinaryOptimize(platformInfo.payment_qr_url, 400)} alt="Platform QR" loading="lazy" decoding="async" className="w-40 h-40 object-contain rounded-lg mx-auto" />
                 </div>
               </div>
             ) : !platformInfo ? (

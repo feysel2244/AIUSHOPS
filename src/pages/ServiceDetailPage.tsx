@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { trackView } from "../lib/analytics";
 import FormatDescription from "../components/ui/FormatDescription";
 import { supabase } from "../lib/supabase";
 import { toService, toShop, type ServiceRow, type ShopRow } from "../lib/marketData";
@@ -9,6 +8,7 @@ import StarRating from "../components/ui/StarRating";
 import Badge from "../components/ui/Badge";
 import { useApp } from "../context/AppContext";
 import { Helmet } from "react-helmet-async";
+import { cloudinaryOptimize } from "../lib/cloudinary";
 
 type Review = {
   id: string;
@@ -301,7 +301,7 @@ export default function ServiceDetailPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
         <div>
           <div className="aspect-[4/3] bg-stone-100 rounded-2xl overflow-hidden relative">
-            <img src={sv.image} alt={sv.name} className="w-full h-full object-cover" />
+            <img src={cloudinaryOptimize(sv.image, 1200)} alt={sv.name} fetchPriority="high" decoding="async" className="w-full h-full object-cover" />
             <div className="absolute top-3 left-3"><Badge variant="service" label="Service" /></div>
             {sv.promoted && <div className="absolute top-3 right-3"><Badge variant="promoted" /></div>}
           </div>
@@ -316,7 +316,7 @@ export default function ServiceDetailPage() {
           </div>
 
           <Link to={`/shop/${sv.shopSlug}`} className="flex items-center gap-3 p-3 bg-stone-50 rounded-xl border border-stone-100 hover:border-stone-200 transition-colors mb-4">
-            <img src={sv.shopLogo} alt={sv.shopName} className="w-9 h-9 rounded-lg object-cover bg-stone-200" />
+            <img src={cloudinaryOptimize(sv.shopLogo, 72)} alt={sv.shopName} loading="lazy" decoding="async" className="w-9 h-9 rounded-lg object-cover bg-stone-200" />
             <div>
               <div className="font-semibold text-sm text-stone-900">{sv.shopName}</div>
               <div className="text-xs text-stone-500 flex items-center gap-1">{sv.pickupLocation}</div>
@@ -412,7 +412,7 @@ export default function ServiceDetailPage() {
         <div className="space-y-4">
           {reviews.length === 0 ? <p className="text-sm text-stone-500">No reviews yet.</p> : reviews.map((r) => (
             <div key={r.id} className="flex gap-3 p-4 bg-stone-50 rounded-xl">
-              <img src={r.avatar} alt={r.author} className="w-9 h-9 rounded-full object-cover" />
+              <img src={cloudinaryOptimize(r.avatar, 72)} alt={r.author} loading="lazy" decoding="async" className="w-9 h-9 rounded-full object-cover" />
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-sm">{r.author}</span>

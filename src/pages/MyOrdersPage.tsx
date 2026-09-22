@@ -5,6 +5,7 @@ import StarRating from "../components/ui/StarRating";
 import { useApp } from "../context/AppContext";
 import { supabase } from "../lib/supabase";
 import { uploadImage } from "../lib/uploadImage";
+import { cloudinaryOptimize } from "../lib/cloudinary";
 import { refreshShopRating } from "../lib/reviews";
 import {
   fetchShopPaymentInfo,
@@ -132,7 +133,7 @@ function QRPayModal({
             <div className="text-center">
               <p className="text-xs text-stone-500 mb-2">Scan with TnG or banking app</p>
               <div className="inline-block border-4 border-[#1C3270]/20 rounded-xl p-1.5 bg-white shadow-sm">
-                <img src={info.payment_qr_url} alt="Payment QR" className="w-44 h-44 object-contain rounded-lg mx-auto" />
+                <img src={cloudinaryOptimize(info.payment_qr_url, 400)} alt="Payment QR" loading="lazy" decoding="async" className="w-44 h-44 object-contain rounded-lg mx-auto" />
               </div>
             </div>
           )}

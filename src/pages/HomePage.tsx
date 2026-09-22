@@ -8,6 +8,7 @@ import SkeletonCard from "../components/ui/SkeletonCard";
 import { useApp } from "../context/AppContext";
 import { supabase } from "../lib/supabase";
 import { toProduct, toService, toShop } from "../lib/marketData";
+import { cloudinaryOptimize } from "../lib/cloudinary";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -233,6 +234,26 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* Quick Sell banner */}
+        {user && (
+          <section className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white dark:bg-[#112038] rounded-2xl border border-stone-100 dark:border-[#1C3058] shadow-sm px-6 py-4">
+            <div className="flex items-center gap-3">
+              <span className="text-3xl flex-shrink-0">🏷️</span>
+              <div>
+                <p className="font-bold text-stone-900 dark:text-[#E2EAF6] text-sm">Have something to sell?</p>
+                <p className="text-stone-500 dark:text-[#6888A8] text-xs mt-0.5">List a textbook, gadget, or anything else — no shop needed. Up to 5 items.</p>
+              </div>
+            </div>
+            <Link
+              to="/quick-sell"
+              className="flex-shrink-0 px-5 py-2 rounded-xl text-sm font-bold text-white transition-colors hover:opacity-90 whitespace-nowrap"
+              style={{ background: "#44B444" }}
+            >
+              Quick Sell →
+            </Link>
+          </section>
+        )}
+
         {/* Sponsored / Promoted */}
         {promoted.length > 0 && (
           <section>
@@ -354,8 +375,10 @@ export default function HomePage() {
                 >
                   <div className="aspect-[4/3] bg-stone-100 rounded-xl overflow-hidden mb-2">
                     <img
-                      src={item.image}
+                      src={cloudinaryOptimize(item.image, 320)}
                       alt={item.name}
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                     />
                   </div>

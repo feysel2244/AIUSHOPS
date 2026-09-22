@@ -76,6 +76,12 @@ export async function uploadImage(
     );
   }
 
-  // Return the Cloudinary secure URL
-  return data.url;
+  // Return the raw Cloudinary URL without any baked-in transforms.
+  // cloudinaryOptimize() is called at render time and injects the correct
+  // width for each context (64px thumbnail, 400px card, 1200px detail view).
+  // Baking w_1200 here would cause cloudinaryOptimize to skip resizing
+  // (it detects an existing transform and returns the URL unchanged), so
+  // every thumbnail would still download a 1200px-wide image.
+  const raw: string = data.url;
+  return raw;
 }

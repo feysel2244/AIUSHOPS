@@ -8,7 +8,7 @@ import Badge from "../components/ui/Badge";
 import ProductCard from "../components/cards/ProductCard";
 import { useApp } from "../context/AppContext";
 import { Helmet } from "react-helmet-async";
-
+import { cloudinaryOptimize } from "../lib/cloudinary";
 
 type Review = {
   id: string;
@@ -257,13 +257,13 @@ export default function ProductDetailPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
         <div>
           <div className="aspect-[4/3] bg-stone-100 rounded-2xl overflow-hidden mb-3">
-            <img src={p.images[activeImg]} alt={p.name} className="w-full h-full object-cover" />
+            <img src={cloudinaryOptimize(p.images[activeImg], 1200)} alt={p.name} fetchPriority="high" decoding="async" className="w-full h-full object-cover" />
           </div>
           {p.images.length > 1 && (
             <div className="flex gap-2">
               {p.images.map((img: string, i: number) => (
                 <button key={img} onClick={() => setActiveImg(i)} className={`w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${activeImg === i ? "border-[#1C3270]" : "border-stone-200 hover:border-stone-300"}`}>
-                  <img src={img} alt="" className="w-full h-full object-cover" />
+                  <img src={cloudinaryOptimize(img, 128)} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                 </button>
               ))}
             </div>
@@ -280,7 +280,7 @@ export default function ProductDetailPage() {
           </div>
 
           <Link to={`/shop/${p.shopSlug}`} className="flex items-center gap-3 p-3 bg-stone-50 rounded-xl border border-stone-100 hover:border-stone-200 transition-colors mb-4">
-            <img src={p.shopLogo} alt={p.shopName} className="w-9 h-9 rounded-lg object-cover bg-stone-200" />
+            <img src={cloudinaryOptimize(p.shopLogo, 72)} alt={p.shopName} loading="lazy" decoding="async" className="w-9 h-9 rounded-lg object-cover bg-stone-200" />
             <div>
               <div className="font-semibold text-sm text-stone-900">{p.shopName}</div>
               <div className="text-xs text-stone-500 flex items-center gap-1">{p.pickupLocation}</div>
@@ -348,7 +348,7 @@ export default function ProductDetailPage() {
         <div className="space-y-4">
           {reviews.length === 0 ? <p className="text-sm text-stone-500">No reviews yet.</p> : reviews.map((r) => (
             <div key={r.id} className="flex gap-3 p-4 bg-stone-50 rounded-xl">
-              <img src={r.avatar} alt={r.author} className="w-9 h-9 rounded-full object-cover" />
+              <img src={cloudinaryOptimize(r.avatar, 72)} alt={r.author} loading="lazy" decoding="async" className="w-9 h-9 rounded-full object-cover" />
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-sm">{r.author}</span>

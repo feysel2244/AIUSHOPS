@@ -6,11 +6,13 @@ import { ensureBuyerProfile } from "../lib/profiles";
 import { uploadImage, validateImageFile } from "../lib/uploadImage";
 import {
   fetchMultiShopPaymentInfo,
+  fetchQuickSellerPaymentInfo,
   confirmPaymentByBuyer,
   notifySellerNewOrder,
   notifyBuyerOrderConfirmed,
   type ShopPaymentInfo,
 } from "../lib/payments";
+import { cloudinaryOptimize } from "../lib/cloudinary";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -383,22 +385,38 @@ export default function CartPage() {
       return;
     }
 
+    // Separate quick-sale groups from regular shop groups
+    const regularGroups = grouped.filter(g => !g.items.some(i => i.quickListingId));
+    const quickGroups   = grouped.filter(g =>  g.items.some(i => i.quickListingId));
+
     // Fetch all shop payment info upfront
-    const allShopIds = grouped.map((g) => g.shopId);
+    const allShopIds = regularGroups.map((g) => g.shopId);
     let shopPaymentMap: Record<string, ShopPaymentInfo> = {};
     try {
       shopPaymentMap = await fetchMultiShopPaymentInfo(allShopIds);
     } catch {
-      // non-fatal — we'll still validate below
+      // non-fatal
     }
 
-    // Validate: any "pay now" shop must have at least one payment method
+    // Fetch quick seller payment info (from profiles)
+    for (const g of quickGroups) {
+      try {
+        const info = await fetchQuickSellerPaymentInfo(g.shopId);
+        if (info) shopPaymentMap[g.shopId] = info;
+      } catch {
+        // non-fatal
+      }
+    }
+
+    // Validate: any "pay now" group must have at least one payment method
     const payNowGroups = grouped.filter((g) => (paymentTimings[g.shopId] ?? "now") === "now");
     for (const g of payNowGroups) {
       const info = shopPaymentMap[g.shopId];
       if (!ShopHasPaymentMethod(info)) {
         setPaymentError(
-          `"${g.shopName}" hasn't set up a payment method yet. Choose "Pay on pickup" for this shop, or ask the seller to add their QR / bank details.`
+          g.items.some(i => i.quickListingId)
+            ? `"${g.shopName}" hasn't set up a payment QR yet. Ask them to add it in their Quick Sell page, or choose "Pay on pickup".`
+            : `"${g.shopName}" hasn't set up a payment method yet. Choose "Pay on pickup" for this shop, or ask the seller to add their QR / bank details.`
         );
         setProcessing(false);
         return;
@@ -412,22 +430,24 @@ export default function CartPage() {
       const groupSubtotal = group.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
       const orderCode = generateOrderCode();
 
+      const isQuickSale = group.items.some(i => i.quickListingId);
       const { data: order, error: orderError } = await supabase
         .from("orders")
         .insert({
-          order_code: orderCode,
-          buyer_id: user.id,
-          shop_id: group.shopId,
-          type: "product",
-          status: "pending",
-          subtotal: groupSubtotal,
-          platform_fee: 0,
-          total: groupSubtotal,
-          payment_method: timing === "now" ? "qr_bank_transfer" : "cash_on_pickup",
-          payment_status: "unpaid",
-          payment_timing: timing,
-          note: notes[group.shopId] || null,
-          pickup_time: pickupTimes[group.shopId] || null,
+          order_code:       orderCode,
+          buyer_id:         user.id,
+          shop_id:          isQuickSale ? null : group.shopId,
+          quick_listing_id: isQuickSale ? (group.items[0]?.quickListingId ?? null) : null,
+          type:             isQuickSale ? "quick_sale" : "product",
+          status:           "pending",
+          subtotal:         groupSubtotal,
+          platform_fee:     0,
+          total:            groupSubtotal,
+          payment_method:   timing === "now" ? "qr_bank_transfer" : "cash_on_pickup",
+          payment_status:   "unpaid",
+          payment_timing:   timing,
+          note:             notes[group.shopId] || null,
+          pickup_time:      pickupTimes[group.shopId] || null,
         })
         .select("id")
         .single();
@@ -552,7 +572,7 @@ export default function CartPage() {
                       {group.items.map((item) => (
                         <div key={item.id} className="px-4 py-3">
                           <div className="flex items-start gap-3">
-                            <img src={item.image} alt={item.name} className="w-14 h-14 rounded-lg object-cover bg-stone-100 flex-shrink-0" />
+                            <img src={cloudinaryOptimize(item.image, 120)} alt={item.name} loading="lazy" decoding="async" className="w-14 h-14 rounded-lg object-cover bg-stone-100 flex-shrink-0" />
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between gap-2">
                                 <div className="font-medium text-sm text-stone-900 dark:text-[#E2EAF6] line-clamp-2 flex-1">{item.name}</div>

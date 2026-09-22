@@ -5,8 +5,10 @@ import { useCategories } from "../hooks/useCategories";
 import ProductCard from "../components/cards/ProductCard";
 import ServiceCard from "../components/cards/ServiceCard";
 import ShopCard from "../components/cards/ShopCard";
+import QuickListingCard from "../components/cards/QuickListingCard";
 import { supabase } from "../lib/supabase";
 import { toProduct, toService, toShop } from "../lib/marketData";
+import { fetchQuickListings, type QuickListing } from "../lib/quickListings";
 
 const SORT_OPTIONS = [
   { value: "relevance", label: "Relevance" },
@@ -16,7 +18,7 @@ const SORT_OPTIONS = [
   { value: "rating", label: "Highest Rated" },
 ];
 
-const TAB_OPTIONS = ["All", "Products", "Services", "Shops"];
+const TAB_OPTIONS = ["All", "Products", "Services", "Shops", "Student Listings"];
 
 export default function BrowsePage() {
   const { categories } = useCategories();
@@ -37,6 +39,7 @@ export default function BrowsePage() {
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   const [filteredServices, setFilteredServices] = useState<any[]>([]);
   const [filteredShops, setFilteredShops] = useState<any[]>([]);
+  const [filteredQuickListings, setFilteredQuickListings] = useState<QuickListing[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -98,18 +101,34 @@ export default function BrowsePage() {
         shopQuery.order(shopOrder[0] as string, { ascending: shopOrder[1] as boolean }),
       ]);
 
+      // Quick listings loaded separately — if the table doesn't exist yet or
+      // any error occurs, products/services/shops still render normally.
+      let quickListings: QuickListing[] = [];
+      try {
+        quickListings = await fetchQuickListings({
+          category: cat || undefined,
+          search: search || undefined,
+        });
+      } catch {
+        // table not migrated yet or RLS error — degrade gracefully
+      }
+
       setFilteredProducts((productResult.data ?? []).map(toProduct).filter((p) => !location || p.pickupLocation === location));
       setFilteredServices((serviceResult.data ?? []).map(toService).filter((s) => !location || s.pickupLocation === location));
       setFilteredShops((shopResult.data ?? []).map(toShop));
+      setFilteredQuickListings(
+        quickListings.filter((ql) => !location || ql.pickupLocation === location)
+      );
       setLoading(false);
     }
     void loadResults();
   }, [search, cat, sort, priceMin, priceMax, minRating, location, openOnly]);
 
   const totalCount =
-    (tab === "All" ? filteredProducts.length + filteredServices.length + filteredShops.length :
-     tab === "Products" ? filteredProducts.length :
-     tab === "Services" ? filteredServices.length :
+    (tab === "All"               ? filteredProducts.length + filteredServices.length + filteredShops.length + filteredQuickListings.length :
+     tab === "Products"          ? filteredProducts.length :
+     tab === "Services"          ? filteredServices.length :
+     tab === "Student Listings"  ? filteredQuickListings.length :
      filteredShops.length);
 
   function resetFilters() {
@@ -241,6 +260,14 @@ export default function BrowsePage() {
               {tab === "All" && <h3 className="font-bold text-stone-700 dark:text-[#6888A8] text-sm uppercase tracking-wide mb-3">Services</h3>}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {filteredServices.map((s) => <ServiceCard key={s.id} service={s as any} />)}
+              </div>
+            </div>
+          )}
+          {(tab === "All" || tab === "Student Listings") && filteredQuickListings.length > 0 && (
+            <div>
+              {tab === "All" && <h3 className="font-bold text-stone-700 dark:text-[#6888A8] text-sm uppercase tracking-wide mb-3">Student Listings</h3>}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {filteredQuickListings.map((ql) => <QuickListingCard key={ql.id} listing={ql} />)}
               </div>
             </div>
           )}
