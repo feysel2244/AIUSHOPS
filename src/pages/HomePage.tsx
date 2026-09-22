@@ -217,20 +217,35 @@ export default function HomePage() {
 
         {/* Categories */}
         <section>
-          <SectionHeader title="Browse by Category" linkTo="/browse" linkLabel="All categories" />
+          <SectionHeader title="Browse by Category" />
           <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
-            {categories.map((cat) => (
+            {categories.slice(0, 7).map((cat, i) => (
               <Link
                 key={cat.id}
                 to={`/browse?cat=${encodeURIComponent(cat.name)}`}
-                className="group flex flex-col items-center gap-2 p-3 bg-white dark:bg-[#112038] rounded-xl border border-stone-100 dark:border-[#1C3058] shadow-sm hover:shadow-md hover:border-[#44B444] dark:hover:border-[#00B4C6] transition-all"
+                className={`group flex flex-col items-center gap-2 p-3 bg-white dark:bg-[#112038] rounded-xl border border-stone-100 dark:border-[#1C3058] shadow-sm hover:shadow-md hover:border-[#44B444] dark:hover:border-[#00B4C6] transition-all ${
+                  i >= 3 ? "hidden md:flex" : "flex"
+                }`}
               >
                 <span className="text-2xl">{cat.icon}</span>
-                <span className="text-xs text-stone-600 font-medium text-center leading-tight group-hover:text-[#1C3270] transition-colors">
+                <span className="text-xs text-stone-600 font-medium text-center leading-tight group-hover:text-[#1C3270] transition-colors line-clamp-1">
                   {cat.name}
                 </span>
               </Link>
             ))}
+            <Link
+              to="/browse"
+              className="group flex flex-col items-center justify-center gap-2 p-3 bg-stone-50 dark:bg-[#162840] rounded-xl border border-stone-200 dark:border-[#1C3058] shadow-sm hover:shadow-md transition-all"
+            >
+              <div className="w-8 h-8 rounded-full bg-stone-200 dark:bg-[#1C3058] text-stone-500 dark:text-stone-400 group-hover:bg-[#1C3270] group-hover:text-white flex items-center justify-center transition-colors">
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+              <span className="text-xs text-stone-600 font-medium text-center leading-tight group-hover:text-[#1C3270]">
+                View All
+              </span>
+            </Link>
           </div>
         </section>
 
@@ -352,12 +367,18 @@ export default function HomePage() {
           />
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {loading
-              ? Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
-              : newArrivals.map((item) =>
-                  "priceType" in item
-                    ? <ServiceCard key={item.id} service={item as any} />
-                    : <ProductCard key={item.id} product={item as any} />
-                )
+              ? Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className={i >= 4 ? "hidden md:block" : "block"}>
+                    <SkeletonCard />
+                  </div>
+                ))
+              : newArrivals.map((item, i) => (
+                  <div key={item.id} className={i >= 4 ? "hidden md:block" : "block"}>
+                    {"priceType" in item
+                      ? <ServiceCard service={item as any} />
+                      : <ProductCard product={item as any} />}
+                  </div>
+                ))
             }
           </div>
         </section>

@@ -35,9 +35,38 @@ export function useCategories() {
     setLoading(true);
     const { data } = await supabase
       .from("categories")
-      .select("id,name,icon,sort_order")
-      .order("sort_order", { ascending: true });
-    if (data && data.length > 0) setCategories(data as Category[]);
+      .select("id,name,icon,sort_order");
+      
+    if (data && data.length > 0) {
+      // Fetch lightweight counts to determine popularity
+      const now = new Date().toISOString();
+      const [prodRes, servRes, quickRes] = await Promise.all([
+        supabase.from("products").select("category").eq("status", "approved").is("deleted_at", null),
+        supabase.from("services").select("category").eq("status", "approved").is("deleted_at", null),
+        supabase.from("quick_listings").select("category").eq("status", "active").gt("expires_at", now)
+      ]);
+
+      const counts: Record<string, number> = {};
+      const tally = (list: any[] | null) => {
+        if (!list) return;
+        for (const row of list) {
+          counts[row.category] = (counts[row.category] || 0) + 1;
+        }
+      };
+
+      tally(prodRes.data);
+      tally(servRes.data);
+      tally(quickRes.data);
+
+      const enriched = (data as Category[]).sort((a, b) => {
+        const countA = counts[a.name] || 0;
+        const countB = counts[b.name] || 0;
+        if (countB !== countA) return countB - countA; // Descending by popularity
+        return a.sort_order - b.sort_order; // Fallback to sort_order
+      });
+
+      setCategories(enriched);
+    }
     setLoading(false);
   }
 
