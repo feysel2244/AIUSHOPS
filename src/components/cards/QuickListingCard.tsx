@@ -34,7 +34,7 @@ export default function QuickListingCard({
     e.preventDefault();
     if (!user) { openAuthModal("login"); return; }
     addToCart({
-      productId:      listing.id,
+      productId:      "",
       shopId:         listing.sellerId,
       shopSlug:       `quick-${listing.sellerId}`,
       shopName:       listing.sellerName,
@@ -51,7 +51,7 @@ export default function QuickListingCard({
     e.preventDefault();
     if (!user) { openAuthModal("login"); return; }
     addToCart({
-      productId:      listing.id,
+      productId:      "",
       shopId:         listing.sellerId,
       shopSlug:       `quick-${listing.sellerId}`,
       shopName:       listing.sellerName,

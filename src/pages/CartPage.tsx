@@ -464,11 +464,11 @@ export default function CartPage() {
 
       const { error: itemsError } = await supabase.from("order_items").insert(
         group.items.map((item) => ({
-          order_id: order.id,
-          product_id: item.productId,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
+          order_id:   order.id,
+          product_id: item.quickListingId ? null : (item.productId || null),
+          name:       item.name,
+          price:      item.price,
+          quantity:   item.quantity,
         }))
       );
 
